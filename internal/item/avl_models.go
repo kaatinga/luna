@@ -1,29 +1,51 @@
 package item
 
+import (
+	"time"
+)
+
 // Item is an AVL tree node
 type Item[K Ordered, V any] struct {
-	Key    K
-	Value  V
-	Height int
-	Left   *Item[K, V]
-	Right  *Item[K, V]
+	Key            K
+	Value          V
+	Height         int8
+	Left           *Item[K, V]
+	Right          *Item[K, V]
+	ExpirationTime time.Time
+
+	// linked list for eviction
+
+	NextItem     *Item[K, V]
+	PreviousItem *Item[K, V]
 }
 
-func height[K Ordered, V any](item *Item[K, V]) int {
+func Insert[K Ordered, V any](item *Item[K, V], insert *Item[K, V]) *Item[K, V] {
+	if item == nil {
+		return insert
+	}
+	if insert.Key < item.Key {
+		item.Left = Insert(item.Left, insert)
+	} else {
+		item.Right = Insert(item.Right, insert)
+	}
+	return balanceItem(item)
+}
+
+func height[K Ordered, V any](item *Item[K, V]) int8 {
 	if item == nil {
 		return 0
 	}
 	return item.Height
 }
 
-func balance[K Ordered, V any](item *Item[K, V]) int {
+func balance[K Ordered, V any](item *Item[K, V]) int8 {
 	if item == nil {
 		return 0
 	}
 	return height(item.Right) - height(item.Left)
 }
 
-func max(a, b int) int {
+func max(a, b int8) int8 {
 	if a > b {
 		return a
 	}
@@ -38,6 +60,7 @@ func fixHeight[K Ordered, V any](item *Item[K, V]) {
 }
 
 func rotateRight[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
+	// fmt.Printf("rotateRight: %v\n", item.Key)
 	left := item.Left
 	item.Left = left.Right
 	left.Right = item
@@ -47,6 +70,7 @@ func rotateRight[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 }
 
 func rotateLeft[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
+	// fmt.Printf("rotateLeft: %v\n", item.Key)
 	right := item.Right
 	item.Right = right.Left
 	right.Left = item
@@ -70,19 +94,6 @@ func balanceItem[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 		return rotateRight(item)
 	}
 	return item
-}
-
-// Insert inserts a new item into the tree.
-func Insert[K Ordered, V any](item *Item[K, V], key K, value any) *Item[K, V] {
-	if item == nil {
-		return &Item[K, V]{Key: key, Height: 1, Value: value}
-	}
-	if key < item.Key {
-		item.Left = Insert(item.Left, key, value)
-	} else {
-		item.Right = Insert(item.Right, key, value)
-	}
-	return balanceItem(item)
 }
 
 // Search searches for an item in the tree.

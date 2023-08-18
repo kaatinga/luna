@@ -1,6 +1,8 @@
 package item
 
 import (
+	"fmt"
+	"log"
 	"time"
 )
 
@@ -19,16 +21,17 @@ type Item[K Ordered, V any] struct {
 	PreviousItem *Item[K, V]
 }
 
-func Insert[K Ordered, V any](item *Item[K, V], insert *Item[K, V]) *Item[K, V] {
-	if item == nil {
+func Insert[K Ordered, V any](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {
+	if root == nil {
 		return insert
 	}
-	if insert.Key < item.Key {
-		item.Left = Insert(item.Left, insert)
+	if insert.Key < root.Key {
+		root.Left = Insert(root.Left, insert)
 	} else {
-		item.Right = Insert(item.Right, insert)
+		root.Right = Insert(root.Right, insert)
 	}
-	return balanceItem(item)
+
+	return balanceItem(root)
 }
 
 func height[K Ordered, V any](item *Item[K, V]) int8 {
@@ -98,13 +101,37 @@ func balanceItem[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 
 // Search searches for an item in the tree.
 func Search[K Ordered, V any](item *Item[K, V], key K) *Item[K, V] {
+	// if item != nil {
+	// log.Println("searching in", item.Key)
+	// }
+
 	if item == nil || item.Key == key {
+		// if item != nil && item.Key == key {
+		// log.Println("item found", item)
+		// }
 		return item
 	}
+	// printItem(item)
 	if key < item.Key {
+		// log.Println("searching left")
 		return Search(item.Left, key)
 	}
+
+	// log.Println("searching right")
 	return Search(item.Right, key)
+}
+
+func printItem[K Ordered, V any](item *Item[K, V]) {
+	var left = "<nil>"
+	if item.Left != nil {
+		left = fmt.Sprint(item.Left.Key)
+	}
+
+	var right = "<nil>"
+	if item.Right != nil {
+		right = fmt.Sprint(item.Right.Key)
+	}
+	log.Printf("item: %s, left: %s, right: %s\n", item.Key, left, right)
 }
 
 // Delete deletes an item from the tree.

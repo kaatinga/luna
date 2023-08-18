@@ -2,79 +2,86 @@ package cache
 
 import (
 	"fmt"
-	"github.com/kaatinga/luna/internal/item"
 	"log"
 	"time"
+
+	"github.com/kaatinga/luna/internal/item"
 )
 
 type Janitor[K item.Ordered, V any] struct {
-	update    chan *Action[K, V]
-	lastItem  *item.Item[K, V]
-	firstItem *item.Item[K, V]
+	reloadEvictionWorker chan struct{}
+	lastItem             *item.Item[K, V]
+	firstItem            *item.Item[K, V]
 }
 
 func NewJanitor[K item.Ordered, V any]() *Janitor[K, V] {
 	return &Janitor[K, V]{
-		update: make(chan *Action[K, V]),
+		reloadEvictionWorker: make(chan struct{}),
 	}
 }
 
 const year = time.Hour * 24 * 365
 
-func (c *Cache[K, V]) evictor() {
-	fmt.Println("evictor started")
+// evictionWorker
+func (c *Cache[K, V]) evictionWorker() {
+	fmt.Println("evict started")
+
 	// default time is in one year
 	var soonestTime = time.Now().Add(year)
+
 	for {
 		select {
-		case action := <-c.Janitor.update:
-			switch action.actionType {
-			case insert:
-				action.Item.NextItem, c.Janitor.firstItem = c.Janitor.firstItem, action.Item
-				c.Janitor.firstItem = action.Item
-			case search:
-				// delete item from the linked list
-				c.deleteItem(action.Item)
-
-				// move the item back to the front of the linked list
-				action.Item.NextItem, action.Item.PreviousItem = c.Janitor.firstItem, nil
-				c.Janitor.firstItem = action.Item
-			case remove:
-				// delete item from the linked list
-				c.deleteItem(action.Item)
-			default:
-				log.Println("unknown action type in the janitor")
+		case <-c.reloadEvictionWorker:
+			if c.lastItem != nil {
+				log.Println("evictionWorker: reloadEvictionWorker, soonest item:", c.lastItem.Key)
+			} else {
+				log.Println("evictionWorker: reloadEvictionWorker, soonest item: not present")
 			}
-
 			if c.lastItem == nil {
 				soonestTime = time.Now().Add(year) // set one year if there are no items in the list
 			} else {
 				soonestTime = c.lastItem.ExpirationTime
 			}
-
 		case <-time.After(time.Until(soonestTime)):
+			log.Println("evictionWorker: time to evict", c.lastItem.Key)
 			// delete action from the tree
-			c.Root = item.Delete(c.Root, c.Janitor.firstItem.Key)
+			soonestTime = time.Now().Add(year)
+			c.Delete(c.lastItem.Key)
 		}
 	}
 }
 
-func (c *Cache[K, V]) deleteItem(item *item.Item[K, V]) {
-	if item.NextItem != nil {
-		item.NextItem.PreviousItem = item.PreviousItem
+func (c *Cache[K, V]) evict(found *item.Item[K, V]) {
+	var next string
+	if found.NextItem != nil {
+		next = fmt.Sprint(found.NextItem.Key)
+	} else {
+		next = "<nil>"
 	}
 
-	if item.PreviousItem != nil {
-		item.PreviousItem.NextItem = item.NextItem
+	var previous string
+	if found.PreviousItem != nil {
+		previous = fmt.Sprint(found.PreviousItem.Key)
+	} else {
+		previous = "<nil>"
+	}
+	log.Printf("evicting %v, next: %v, previous: %v", found.Key, next, previous)
+	if found.NextItem != nil {
+		found.NextItem.PreviousItem = found.PreviousItem
+	}
+
+	if found.PreviousItem != nil {
+		found.PreviousItem.NextItem = found.NextItem
 	}
 
 	// if the item is the first item, update the first item
-	if c.firstItem == item {
-		c.firstItem = item.NextItem
+	if c.firstItem == found {
+		c.firstItem = found.NextItem
 	}
 
 	// if the item is the last item, update the last item
-	if c.lastItem == item {
-		c.lastItem = item.PreviousItem
+	if c.lastItem == found {
+		c.lastItem = found.PreviousItem
+		c.Janitor.reloadEvictionWorker <- struct{}{}
 	}
 }

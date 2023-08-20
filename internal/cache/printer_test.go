@@ -34,21 +34,24 @@ func printTree[K item.Ordered, V any](t *testing.T, item *item.Item[K, V], prefi
 }
 
 // checkEvictionList prints the list in a human-readable format.
-func checkEvictionList[K item.Ordered, V any](t *testing.T, cache *Cache[K, V]) {
+func (c *Cache[K, V]) checkEvictionList(t *testing.T, mustBeEmpty bool) {
 	t.Helper()
-	if cache.lastItem == nil {
+	if c.lastItem == nil {
 		t.Log("eviction list is empty")
 		return
 	}
 	t.Logf("List:\n")
 	var previousTime time.Time
-	for i := cache.firstItem; i != nil; i = i.NextItem {
+	for i := c.firstItem; i != nil; i = i.NextItem {
 		if i.ExpirationTime.After(previousTime) && !previousTime.IsZero() {
 			t.Fatalf("previousTime %s is after current %s\n", previousTime.Format(time.RFC3339Nano), i.ExpirationTime.Format(time.RFC3339Nano))
 		}
 		next := "<nil>"
 		if i.NextItem != nil {
 			next = fmt.Sprint(i.NextItem.Key)
+			if i.NextItem == i {
+				t.Fatalf("item %v points to itself\n", i.Key)
+			}
 		}
 		previous := "<nil>"
 		if i.PreviousItem != nil {
@@ -56,6 +59,26 @@ func checkEvictionList[K item.Ordered, V any](t *testing.T, cache *Cache[K, V]) 
 		}
 		t.Logf("%v, next: %v, prev: %s, %s\n", i.Key, next, previous, i.ExpirationTime.Format(time.RFC3339Nano))
 		previousTime = i.ExpirationTime
+	}
+
+	var first string
+	if c.firstItem != nil {
+		first = fmt.Sprint(c.firstItem.Key)
+	} else {
+		first = "<nil>"
+	}
+	var last string
+	if c.lastItem != nil {
+		last = fmt.Sprint(c.lastItem.Key)
+	} else {
+		last = "<nil>"
+	}
+	t.Logf("first: %v, last: %v\n", first, last)
+	if mustBeEmpty && (c.firstItem != nil || c.lastItem != nil) {
+		t.Fatalf("eviction list must be empty, but first item is %v\n", c.firstItem.Key)
+	}
+	if !mustBeEmpty && (c.firstItem == nil || c.lastItem == nil) {
+		t.Fatalf("eviction list must not be empty")
 	}
 	t.Logf("\n")
 }

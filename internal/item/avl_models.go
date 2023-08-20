@@ -8,14 +8,18 @@ import (
 
 // Item is an AVL tree node
 type Item[K Ordered, V any] struct {
-	Key            K
-	Value          V
-	Height         int8
-	Left           *Item[K, V]
-	Right          *Item[K, V]
+	Key    K
+	Value  V
+	Height int8
+	Left   *Item[K, V]
+	Right  *Item[K, V]
+
+	// janitor fields
+
+	// - expiration time for eviction
 	ExpirationTime time.Time
 
-	// linked list for eviction
+	// - linked list for eviction
 
 	NextItem     *Item[K, V]
 	PreviousItem *Item[K, V]
@@ -135,19 +139,21 @@ func printItem[K Ordered, V any](item *Item[K, V]) {
 }
 
 // Delete deletes an item from the tree.
-func Delete[K Ordered, V any](item *Item[K, V], key K) *Item[K, V] {
+func Delete[K Ordered, V any](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
 	if item == nil {
-		return nil
+		return nil, nil
 	}
+	var found *Item[K, V]
 	if key < item.Key {
-		item.Left = Delete(item.Left, key)
+		item.Left, found = Delete(item.Left, key)
 	} else if key > item.Key {
-		item.Right = Delete(item.Right, key)
+		item.Right, found = Delete(item.Right, key)
 	} else {
+		// item found
 		left := item.Left
 		right := item.Right
 		if right == nil {
-			return left
+			return left, item
 		}
 		min := right
 		for min.Left != nil {
@@ -155,9 +161,10 @@ func Delete[K Ordered, V any](item *Item[K, V], key K) *Item[K, V] {
 		}
 		min.Right = deleteMin(right)
 		min.Left = left
-		return balanceItem(min)
+		return balanceItem(min), item
 	}
-	return balanceItem(item)
+
+	return balanceItem(item), found
 }
 
 func deleteMin[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
@@ -165,5 +172,6 @@ func deleteMin[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 		return item.Right
 	}
 	item.Left = deleteMin(item.Left)
+
 	return balanceItem(item)
 }

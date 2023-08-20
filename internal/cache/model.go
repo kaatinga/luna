@@ -2,7 +2,6 @@ package cache
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"github.com/kaatinga/luna/internal/item"
@@ -32,9 +31,8 @@ func (c *Cache[K, V]) Insert(key K, value V) {
 	action := &Action[K, V]{
 		actionType: insert,
 		Item: &item.Item[K, V]{
-			Key:            key,
-			Value:          value,
-			ExpirationTime: time.Now().Add(c.ttl),
+			Key:   key,
+			Value: value,
 		},
 	}
 
@@ -75,29 +73,15 @@ func (c *Cache[K, V]) cacheWorker() {
 		switch action.actionType {
 		case insert:
 			c.Root = item.Insert(c.Root, action.Item)
-
-			if c.firstItem == nil {
-				c.lastItem, c.firstItem = action.Item, action.Item
-				c.Janitor.reloadEvictionWorker <- struct{}{}
-			} else {
-				c.firstItem, c.firstItem.PreviousItem, action.Item.NextItem = action.Item, action.Item, c.firstItem
-			}
+			c.addToEvictionList(action.Item)
 		case remove:
-			found := item.Search(c.Root, action.Key)
-			if found == nil || found.Key != action.Item.Key {
-				log.Println("item not found", action.Key)
-				continue
-			}
-
-			c.evict(found)
-			c.Root = item.Delete(c.Root, action.Key)
+			var deletedItem *item.Item[K, V]
+			c.Root, deletedItem = item.Delete(c.Root, action.Key)
+			c.deleteFromEvictionList(deletedItem)
 		case search:
 			found := item.Search(c.Root, action.Key)
-			if found == nil || found.Key != action.Item.Key {
-				action.output <- nil
-				continue
-			}
-
+			c.deleteFromEvictionList(found)
+			c.addToEvictionList(found)
 			action.output <- found
 		}
 	}

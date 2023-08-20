@@ -51,7 +51,25 @@ func (c *Cache[K, V]) evictionWorker() {
 	}
 }
 
-func (c *Cache[K, V]) evict(found *item.Item[K, V]) {
+func (c *Cache[K, V]) addToEvictionList(item *item.Item[K, V]) {
+	if item == nil {
+		log.Println("evictionWorker: no need to update eviction list: item is nil")
+		return
+	}
+	item.ExpirationTime = time.Now().Add(c.ttl)
+	if c.firstItem == nil {
+		c.lastItem, c.firstItem = item, item
+		c.Janitor.reloadEvictionWorker <- struct{}{}
+	} else {
+		c.firstItem, c.firstItem.PreviousItem, item.NextItem = item, item, c.firstItem
+	}
+}
+
+func (c *Cache[K, V]) deleteFromEvictionList(found *item.Item[K, V]) {
+	if found == nil {
+		log.Println("evictionWorker: no need to update eviction list: found is nil")
+		return
+	}
 	var next string
 	if found.NextItem != nil {
 		next = fmt.Sprint(found.NextItem.Key)
@@ -82,6 +100,12 @@ func (c *Cache[K, V]) evict(found *item.Item[K, V]) {
 	// if the item is the last item, update the last item
 	if c.lastItem == found {
 		c.lastItem = found.PreviousItem
-		c.Janitor.reloadEvictionWorker <- struct{}{}
+		if c.lastItem != nil {
+			log.Println("eviction list must be reloaded as c.lastItem = found, key:", found.Key)
+			c.Janitor.reloadEvictionWorker <- struct{}{}
+		}
 	}
+
+	// clean up bonds in case the item is reinserted
+	found.PreviousItem, found.NextItem = nil, nil
 }

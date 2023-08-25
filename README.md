@@ -1,7 +1,9 @@
-# Thread-Safe Read-Through Cache for Golang
+# luna
 
-A robust package for Golang by [kaatinga](https://github.com/kaatinga) that provides a thread-safe read-through caching
-mechanism with TTL (Time To Live) and touch functionalities.
+Thread-Safe Read-Through Cache for Golang.
+
+A robust package for Golang that provides a thread-safe read-through caching mechanism with TTL (Time To Live) and touch
+functionalities.
 
 ## Features:
 

@@ -1,4 +1,4 @@
-package cache
+package luna
 
 import (
 	"testing"
@@ -19,7 +19,9 @@ func TestInsert_Test(t *testing.T) {
 	for _, tt := range tests {
 		// add a number of nodes to the tree
 		t.Run(tt.name, func(t *testing.T) {
-			tree := NewCache[string, string](30 * time.Second)
+			tree := NewCache[string, string](
+				WithTTL[string, string](30 * time.Second),
+			)
 			for i := 0; i < tt.count; i++ {
 				name := randomUserName()
 				t.Logf("inserting %s\n", name)
@@ -37,7 +39,9 @@ func TestDelete_Test(t *testing.T) {
 	item2 := randomUserName()
 	item3 := randomUserName()
 	items := []string{item1, item2, item3}
-	tree := NewCache[string, string](300 * time.Millisecond)
+	tree := NewCache[string, string](
+		WithTTL[string, string](300 * time.Millisecond),
+	)
 	// add a number of nodes to the tree
 	t.Run("delete item in the center", func(t *testing.T) {
 		for _, name := range items {
@@ -186,5 +190,33 @@ func TestDelete_Test(t *testing.T) {
 		time.Sleep(tree.ttl / 10)
 		printTree(t, tree.Root, "")
 		tree.checkEvictionList(t, false)
+		for _, name := range items {
+			tree.Delete(name)
+		}
+	})
+
+	t.Run("delete and add random items in 3 goroutines", func(t *testing.T) {
+		for _, name := range items {
+			t.Logf("inserting %s\n", name)
+			tree.Insert(name, name)
+		}
+		for i := 0; i < 3; i++ {
+			go func() {
+				for _, name := range items {
+					tree.Delete(name)
+				}
+			}()
+			go func() {
+				for _, name := range items {
+					tree.Insert(name, name)
+				}
+			}()
+		}
+		time.Sleep(tree.ttl / 10)
+		printTree(t, tree.Root, "")
+		tree.checkEvictionList(t, false)
+		for _, name := range items {
+			tree.Delete(name)
+		}
 	})
 }

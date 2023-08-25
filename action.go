@@ -1,4 +1,4 @@
-package cache
+package luna
 
 import "github.com/kaatinga/luna/internal/item"
 

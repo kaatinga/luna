@@ -1,8 +1,6 @@
 package item
 
 import (
-	"fmt"
-	"log"
 	"time"
 )
 
@@ -123,19 +121,6 @@ func Search[K Ordered, V any](item *Item[K, V], key K) *Item[K, V] {
 
 	// log.Println("searching right")
 	return Search(item.Right, key)
-}
-
-func printItem[K Ordered, V any](item *Item[K, V]) {
-	var left = "<nil>"
-	if item.Left != nil {
-		left = fmt.Sprint(item.Left.Key)
-	}
-
-	var right = "<nil>"
-	if item.Right != nil {
-		right = fmt.Sprint(item.Right.Key)
-	}
-	log.Printf("item: %s, left: %s, right: %s\n", item.Key, left, right)
 }
 
 // Delete deletes an item from the tree.

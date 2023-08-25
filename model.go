@@ -1,9 +1,6 @@
-package cache
+package luna
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/kaatinga/luna/internal/item"
 )
 
@@ -11,14 +8,17 @@ type Cache[K item.Ordered, V any] struct {
 	Root *item.Item[K, V]
 	*Janitor[K, V]
 	jobs chan *Action[K, V]
-	ttl  time.Duration
+	options[K, V]
 }
 
-func NewCache[K item.Ordered, V any](ttl time.Duration) *Cache[K, V] {
+func NewCache[K item.Ordered, V any](opts ...Option[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
 		Janitor: NewJanitor[K, V](),
-		jobs:    make(chan *Action[K, V]),
-		ttl:     ttl,
+		jobs:    make(chan *Action[K, V], 100),
+	}
+
+	for _, o := range opts {
+		o(&c.options)
 	}
 
 	go c.cacheWorker()
@@ -66,7 +66,7 @@ func (c *Cache[K, V]) Get(key K) *item.Item[K, V] {
 
 // cacheWorker is a worker that updates the tree
 func (c *Cache[K, V]) cacheWorker() {
-	fmt.Println("main worker started")
+	// fmt.Println("main worker started")
 
 	for action := range c.jobs {
 		// jobs the item in the tree

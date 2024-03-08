@@ -2,6 +2,7 @@ package luna
 
 import (
 	"github.com/kaatinga/luna/internal/item"
+	"time"
 )
 
 type Cache[K item.Ordered, V any] struct {
@@ -11,24 +12,28 @@ type Cache[K item.Ordered, V any] struct {
 	options[K, V]
 }
 
+// NewCache creates a new cache instance. The default TTL is 30 minutes.
 func NewCache[K item.Ordered, V any](opts ...Option[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
-		jobs: make(chan *Action[K, V], 100),
+		jobs:    make(chan *Action[K, V], 100),
+		Janitor: NewJanitor[K, V](),
+		options: defaultOptions[K, V](),
 	}
 
 	for _, o := range opts {
 		o(&c.options)
 	}
 
-	if c.ttl > 0 {
-		c.Janitor = NewJanitor[K, V]()
-		go c.evictionWorker()
-		go c.cacheWorker()
-	} else {
-		go c.cacheWorkerWithoutJanitor()
-	}
+	go c.evictionWorker()
+	go c.cacheWorker()
 
 	return c
+}
+
+func defaultOptions[K item.Ordered, V any]() options[K, V] {
+	return options[K, V]{
+		ttl: 30 * time.Minute,
+	}
 }
 
 func (c *Cache[K, V]) Insert(key K, value V) {
@@ -86,24 +91,6 @@ func (c *Cache[K, V]) cacheWorker() {
 			found := item.Search(c.Root, action.Key)
 			c.deleteFromEvictionList(found)
 			c.addToEvictionList(found)
-			action.output <- found
-		}
-	}
-}
-
-// cacheWorker is a worker that updates the tree
-func (c *Cache[K, V]) cacheWorkerWithoutJanitor() {
-	// fmt.Println("main worker started")
-
-	for action := range c.jobs {
-		// jobs the item in the tree
-		switch action.actionType {
-		case insert:
-			c.Root = item.Insert(c.Root, action.Item)
-		case remove:
-			c.Root, _ = item.Delete(c.Root, action.Key)
-		case search:
-			found := item.Search(c.Root, action.Key)
 			action.output <- found
 		}
 	}

@@ -1,18 +1,21 @@
 package luna
 
-import "time"
+import (
+	"github.com/kaatinga/luna/internal/item"
+	"time"
+)
 
-type options[K comparable, V any] struct {
+type options[K item.Ordered, V any] struct {
 	ttl time.Duration
 	// loader            Loader[K, V]
-	disableTouchOnHit bool
+	//disableTouchOnHit bool
 }
 
-type Option[K comparable, V any] func(*options[K, V])
+type Option[K item.Ordered, V any] func(*options[K, V])
 
 // WithTTL sets the TTL of the cache.
 // It has no effect when passing into Get().
-func WithTTL[K comparable, V any](ttl time.Duration) Option[K, V] {
+func WithTTL[K item.Ordered, V any](ttl time.Duration) Option[K, V] {
 	return func(opts *options[K, V]) {
 		opts.ttl = ttl
 	}
@@ -32,8 +35,8 @@ func WithTTL[K comparable, V any](ttl time.Duration) Option[K, V] {
 // retrieved.
 // When passing into Get(), it overrides the default value of the
 // cache.
-func WithDisableTouchOnHit[K comparable, V any]() Option[K, V] {
-	return func(opts *options[K, V]) {
-		opts.disableTouchOnHit = true
-	}
-}
+//func WithDisableTouchOnHit[K item.Ordered, V any]() Option[K, V] {
+//	return func(opts *options[K, V]) {
+//		opts.disableTouchOnHit = true
+//	}
+//}

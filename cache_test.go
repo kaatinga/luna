@@ -1,6 +1,7 @@
 package luna
 
 import (
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -32,6 +33,45 @@ func TestInsert_Test(t *testing.T) {
 			//printTree(t, tree.Root, "")
 			tree.checkEvictionList(t, false)
 			time.Sleep(2 * time.Second)
+		})
+	}
+}
+
+func TestDeleteNoJanotor_Test(t *testing.T) {
+	type testCases struct {
+		name  string
+		count int
+	}
+	tests := []testCases{
+		{"3 random nodes", 3},
+		{"5 random nodes", 5},
+		{"10 random nodes", 10},
+		{"20 random nodes", 20},
+	}
+	for _, tt := range tests {
+		// add a number of nodes to the tree
+		t.Run(tt.name, func(t *testing.T) {
+			tree := NewCache[string, string]()
+			count := atomic.Int64{}
+
+			for i := 0; i < tt.count; i++ {
+				name := randomUserName()
+				t.Logf("inserting %s\n", name)
+				tree.Insert(name, "test")
+				count.Add(1)
+			}
+
+			go func() {
+				for i := 0; i < tt.count; i++ {
+					name := randomUserName()
+					t.Logf("deleting %s\n", name)
+					tree.Delete(name)
+					count.Add(-1)
+				}
+			}()
+
+			for count.Load() != 0 {
+			}
 		})
 	}
 }

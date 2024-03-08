@@ -21,7 +21,7 @@ func NewWorkerPool[K item.Ordered, V Worker]() *WorkerPool[K, V] {
 	return &WorkerPool[K, V]{}
 }
 
-func (c *WorkerPool[K, V]) Insert(key K, value V) {
+func (c *WorkerPool[K, V]) Add(key K, value V) {
 	c.me.Lock()
 	newItem := &item.Item[K, V]{
 		Key:   key,
@@ -47,11 +47,13 @@ func (c *WorkerPool[K, V]) Get(key K) *item.Item[K, V] {
 	return itm
 }
 
-func (c *WorkerPool[K, V]) Do(key K, f func(*item.Item[K, V]) *item.Item[K, V]) {
+func (c *WorkerPool[K, V]) Do(key K, f func(*item.Item[K, V]) *item.Item[K, V]) (executed bool) {
 	c.me.Lock()
 	itm := item.Search(c.Root, key)
 	if itm != nil {
 		itm = f(itm)
+		executed = true
 	}
 	c.me.Unlock()
+	return
 }

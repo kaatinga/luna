@@ -14,7 +14,7 @@ type Janitor[K item.Ordered, V any] struct {
 
 func NewJanitor[K item.Ordered, V any]() *Janitor[K, V] {
 	return &Janitor[K, V]{
-		reloadEvictionWorker: make(chan struct{}, 100),
+		reloadEvictionWorker: make(chan struct{}, 20),
 	}
 }
 
@@ -30,18 +30,18 @@ func (c *Cache[K, V]) evictionWorker() {
 	for {
 		select {
 		case <-c.reloadEvictionWorker:
-			// if c.lastItem != nil {
-			// 	log.Println("evictionWorker: reloadEvictionWorker, soonest item:", c.lastItem.Key)
-			// } else {
-			// 	log.Println("evictionWorker: reloadEvictionWorker, soonest item: not present")
-			// }
+			//if c.lastItem != nil {
+			//	log.Println("--- evictionWorker: reloadEvictionWorker, soonest item:", c.lastItem.Key)
+			//} else {
+			//	log.Println("--- evictionWorker: reloadEvictionWorker, soonest item: not present")
+			//}
 			if c.lastItem == nil {
 				soonestTime = time.Now().Add(year) // set one year if there are no items in the list
 			} else {
 				soonestTime = c.lastItem.ExpirationTime
 			}
 		case <-time.After(time.Until(soonestTime)):
-			// log.Println("evictionWorker: time to evict", c.lastItem.Key)
+			//log.Println("--- evictionWorker: time to evict", c.lastItem.Key)
 			// delete action from the tree
 			soonestTime = time.Now().Add(year)
 			c.Delete(c.lastItem.Key)

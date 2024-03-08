@@ -13,8 +13,7 @@ type Cache[K item.Ordered, V any] struct {
 
 func NewCache[K item.Ordered, V any](opts ...Option[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
-		Janitor: NewJanitor[K, V](),
-		jobs:    make(chan *Action[K, V], 100),
+		jobs: make(chan *Action[K, V], 100),
 	}
 
 	for _, o := range opts {
@@ -22,7 +21,11 @@ func NewCache[K item.Ordered, V any](opts ...Option[K, V]) *Cache[K, V] {
 	}
 
 	go c.cacheWorker()
-	go c.evictionWorker()
+
+	if c.ttl > 0 {
+		c.Janitor = NewJanitor[K, V]()
+		go c.evictionWorker()
+	}
 
 	return c
 }

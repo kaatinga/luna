@@ -20,7 +20,7 @@ func TestInsert_Test(t *testing.T) {
 		// add a number of nodes to the tree
 		t.Run(tt.name, func(t *testing.T) {
 			tree := NewCache[string, string](
-				WithTTL[string, string](30 * time.Second),
+				WithTTL[string, string](3 * time.Second),
 			)
 			for i := 0; i < tt.count; i++ {
 				name := randomUserName()
@@ -28,8 +28,10 @@ func TestInsert_Test(t *testing.T) {
 				tree.Insert(name, "test")
 			}
 
-			printTree(t, tree.Root, "")
+			time.Sleep(2 * time.Second)
+			//printTree(t, tree.Root, "")
 			tree.checkEvictionList(t, false)
+			time.Sleep(2 * time.Second)
 		})
 	}
 }

@@ -50,14 +50,14 @@ func (c *Cache[K, V]) checkEvictionList(t *testing.T, mustBeEmpty bool) {
 		if i.NextItem != nil {
 			next = fmt.Sprint(i.NextItem.Key)
 			if i.NextItem == i {
-				t.Fatalf("item %v points to itself\n", i.Key)
+				t.Fatalf("item '%v' points to itself\n", i.Key)
 			}
 		}
 		previous := "<nil>"
 		if i.PreviousItem != nil {
 			previous = fmt.Sprint(i.PreviousItem.Key)
 		}
-		t.Logf("%v, next: %v, prev: %s, %s\n", i.Key, next, previous, i.ExpirationTime.Format(time.RFC3339Nano))
+		t.Logf("'%v', next: '%s', prev: '%s', %s\n", i.Key, next, previous, i.ExpirationTime.Format(time.RFC3339Nano))
 		previousTime = i.ExpirationTime
 	}
 

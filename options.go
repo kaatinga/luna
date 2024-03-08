@@ -8,7 +8,7 @@ import (
 type options[K item.Ordered, V any] struct {
 	ttl time.Duration
 	// loader            Loader[K, V]
-	//disableTouchOnHit bool
+	disableTouchOnHit bool
 }
 
 type Option[K item.Ordered, V any] func(*options[K, V])
@@ -35,8 +35,8 @@ func WithTTL[K item.Ordered, V any](ttl time.Duration) Option[K, V] {
 // retrieved.
 // When passing into Get(), it overrides the default value of the
 // cache.
-//func WithDisableTouchOnHit[K item.Ordered, V any]() Option[K, V] {
-//	return func(opts *options[K, V]) {
-//		opts.disableTouchOnHit = true
-//	}
-//}
+func WithDisableTouchOnHit[K item.Ordered, V any]() Option[K, V] {
+	return func(opts *options[K, V]) {
+		opts.disableTouchOnHit = true
+	}
+}

@@ -1,17 +1,40 @@
 package luna
 
 import (
-	"sync/atomic"
+	"sync"
 	"testing"
 	"time"
 )
 
-func TestInsert_Test(t *testing.T) {
+func TestStepByStep_Test(t *testing.T) {
+	tree := NewCache[string, string]()
+
+	tree.Insert("a", "test")
+	tree.checkEvictionList(t, false)
+	tree.Insert("b", "test")
+	tree.checkEvictionList(t, false)
+	tree.Insert("c", "test")
+	tree.checkEvictionList(t, false)
+	tree.Insert("d", "test")
+	tree.checkEvictionList(t, false)
+
+	tree.Delete("b")
+	tree.checkEvictionList(t, false)
+	tree.Delete("c")
+	tree.checkEvictionList(t, false)
+	tree.Delete("d")
+	tree.checkEvictionList(t, false)
+	tree.Delete("a")
+	tree.checkEvictionList(t, true)
+}
+
+func TestInsertGet_Test(t *testing.T) {
 	type testCases struct {
 		name  string
 		count int
 	}
 	tests := []testCases{
+		{"1 random node", 1},
 		{"3 random nodes", 3},
 		{"5 random nodes", 5},
 		{"10 random nodes", 10},
@@ -21,57 +44,74 @@ func TestInsert_Test(t *testing.T) {
 		// add a number of nodes to the tree
 		t.Run(tt.name, func(t *testing.T) {
 			tree := NewCache[string, string](
-				WithTTL[string, string](3 * time.Second),
+				WithTTL[string, string](1*time.Second),
+				WithDisableTouchOnHit[string, string](),
 			)
+			var nms = make([]string, 0, tt.count)
+			var name string
 			for i := 0; i < tt.count; i++ {
-				name := randomUserName()
-				t.Logf("inserting %s\n", name)
+				name = randomUserName()
+				t.Logf("inserting '%s'\n", name)
 				tree.Insert(name, "test")
+				nms = append(nms, name)
 			}
 
-			time.Sleep(2 * time.Second)
+			for i := 0; i < tt.count; i++ {
+				name = nms[i]
+				t.Logf("getting '%s'\n", name)
+				found := tree.Get(name)
+				if found == nil {
+					t.Fatalf("item %s was not found\n", name)
+				}
+			}
+
 			//printTree(t, tree.Root, "")
 			tree.checkEvictionList(t, false)
-			time.Sleep(2 * time.Second)
+			time.Sleep(tree.ttl * 2)
+			tree.checkEvictionList(t, true)
+
+			for i := 0; i < tt.count; i++ {
+				name = nms[i]
+				t.Logf("getting '%s'\n", name)
+				found := tree.Get(name)
+				if found != nil {
+					t.Fatalf("item %s was found\n", name)
+				}
+			}
 		})
 	}
 }
 
-func TestDeleteNoJanotor_Test(t *testing.T) {
+func TestInsertDeleteAsync_Test(t *testing.T) {
 	type testCases struct {
 		name  string
 		count int
 	}
 	tests := []testCases{
-		{"3 random nodes", 3},
-		{"5 random nodes", 5},
-		{"10 random nodes", 10},
-		{"20 random nodes", 20},
+		{"30 random nodes", 30},
+		{"500 random nodes", 500},
+		{"10000 random nodes", 10000},
+		{"200000 random nodes", 200000},
 	}
 	for _, tt := range tests {
 		// add a number of nodes to the tree
 		t.Run(tt.name, func(t *testing.T) {
 			tree := NewCache[string, string]()
-			count := atomic.Int64{}
-
-			for i := 0; i < tt.count; i++ {
-				name := randomUserName()
-				t.Logf("inserting %s\n", name)
-				tree.Insert(name, "test")
-				count.Add(1)
-			}
-
+			wg := sync.WaitGroup{}
+			wg.Add(tt.count)
 			go func() {
 				for i := 0; i < tt.count; i++ {
 					name := randomUserName()
-					t.Logf("deleting %s\n", name)
-					tree.Delete(name)
-					count.Add(-1)
+					tree.Insert(name, "test")
+					wg.Done()
 				}
 			}()
 
-			for count.Load() != 0 {
+			for i := 0; i < tt.count; i++ {
+				name := randomUserName()
+				tree.Delete(name)
 			}
+			wg.Wait()
 		})
 	}
 }

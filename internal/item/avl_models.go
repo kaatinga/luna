@@ -1,9 +1,5 @@
 package item
 
-import (
-	"time"
-)
-
 // Item is an AVL tree node
 type Item[K Ordered, V any] struct {
 	Key    K
@@ -11,16 +7,6 @@ type Item[K Ordered, V any] struct {
 	Height int8
 	Left   *Item[K, V]
 	Right  *Item[K, V]
-
-	// janitor fields
-
-	// - expiration time for eviction
-	ExpirationTime time.Time
-
-	// - linked list for eviction
-
-	NextItem     *Item[K, V]
-	PreviousItem *Item[K, V]
 }
 
 func Insert[K Ordered, V any](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {

@@ -55,3 +55,14 @@ func (c *WorkerPool[K, V]) Do(key K, f func(*Item[K, V]) *Item[K, V]) (executed 
 	c.me.Unlock()
 	return
 }
+
+func (c *WorkerPool[K, V]) Read(key K, f func(*Item[K, V])) (executed bool) {
+	c.me.Lock()
+	itm := Search(c.Root, key)
+	if itm != nil {
+		f(itm)
+		executed = true
+	}
+	c.me.Unlock()
+	return
+}

@@ -1,4 +1,4 @@
-package item
+package luna
 
 // Item is an AVL tree node
 type Item[K Ordered, V any] struct {
@@ -34,13 +34,6 @@ func balance[K Ordered, V any](item *Item[K, V]) int8 {
 		return 0
 	}
 	return height(item.Right) - height(item.Left)
-}
-
-func max(a, b int8) int8 {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func fixHeight[K Ordered, V any](item *Item[K, V]) {

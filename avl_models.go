@@ -1,6 +1,6 @@
 package luna
 
-// Item is an AVL tree node
+// Item is an AVL tree node.
 type Item[K Ordered, V any] struct {
 	Key    K
 	Value  V

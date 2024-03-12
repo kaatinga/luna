@@ -45,6 +45,7 @@ func (c *WorkerPool[K, V]) Get(key K) *Item[K, V] {
 	return itm
 }
 
+// Do executes a function on the item with the given key and updates the item with the result of the function.
 func (c *WorkerPool[K, V]) Do(key K, f func(*Item[K, V]) *Item[K, V]) (executed bool) {
 	c.me.Lock()
 	itm := Search(c.Root, key)
@@ -56,6 +57,7 @@ func (c *WorkerPool[K, V]) Do(key K, f func(*Item[K, V]) *Item[K, V]) (executed 
 	return
 }
 
+// Read executes a function on the item with the given key but does not update the item with the result of the function.
 func (c *WorkerPool[K, V]) Read(key K, f func(*Item[K, V])) (executed bool) {
 	c.me.Lock()
 	itm := Search(c.Root, key)

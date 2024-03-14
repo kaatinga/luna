@@ -4,7 +4,7 @@ import (
 	"testing"
 )
 
-type dummyWorker string
+type dummyWorker bool
 
 func (v dummyWorker) Start() {}
 
@@ -13,7 +13,7 @@ func (v dummyWorker) Stop() {}
 func TestWorkerPool_Get(t *testing.T) {
 	worker := NewWorkerPool[string, dummyWorker]()
 	const key string = "key"
-	const value = dummyWorker("value")
+	const value = dummyWorker(true)
 	worker.Add(key, value)
 
 	t.Run("get existing", func(t *testing.T) {

@@ -103,16 +103,20 @@ func TestWorkerPool_Delete(t *testing.T) {
 	const key string = "key"
 	const value = dummyWorker(true)
 
-	w.Add(key, value)
-	err := w.Delete(key)
-	if err != nil {
+	if err := w.Add(key, value); err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	if err := w.Delete(key); err != nil {
 		t.Errorf("got %v, want %v", err, nil)
 	}
 
 	failingStopW := luna.NewWorkerPool[string, dummyFailingStopWorker]()
-	failingStopW.Add(key, true)
-	err = failingStopW.Delete(key)
-	if err == nil || err.Error() != "dummy stop error" {
+	if err := failingStopW.Add(key, true); err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	if err := failingStopW.Delete(key); err == nil || err.Error() != "dummy stop error" {
 		t.Errorf("expected 'dummy stop error', got %v", err)
 	}
 }
@@ -122,7 +126,9 @@ func TestWorkerPool_Do(t *testing.T) {
 	const key string = "key"
 	const value = dummyWorker(true)
 
-	w.Add(key, value)
+	if err := w.Add(key, value); err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
 
 	executed := false
 	w.Do(key, func(item *luna.Item[string, dummyWorker]) {

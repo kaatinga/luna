@@ -6,39 +6,53 @@ import (
 
 // workerPool is a trait for the workers that can be added to the pool.
 type worker interface {
-	Start()
-	Stop()
+	Start() error
+	Stop() error
 }
 
+// WorkerPool is a pool of workers.
 type WorkerPool[K Ordered, V worker] struct {
 	Root *Item[K, V]
 
 	me sync.Mutex
 }
 
+// NewWorkerPool creates a new instance of WorkerPool.
 func NewWorkerPool[K Ordered, V worker]() *WorkerPool[K, V] {
 	return &WorkerPool[K, V]{}
 }
 
-func (c *WorkerPool[K, V]) Add(key K, value V) {
+// Add adds a new worker to the pool.
+func (c *WorkerPool[K, V]) Add(key K, value V) error {
 	c.me.Lock()
+	defer c.me.Unlock()
 	newItem := &Item[K, V]{
 		Key:   key,
 		Value: value,
 	}
 	c.Root = Insert(c.Root, newItem)
-	newItem.Value.Start()
-	c.me.Unlock()
+	if err := newItem.Value.Start(); err != nil {
+		c.Root, _ = Delete(c.Root, key)
+		return err
+	}
+
+	return nil
 }
 
-func (c *WorkerPool[K, V]) Delete(key K) {
+// Delete removes a worker from the pool.
+func (c *WorkerPool[K, V]) Delete(key K) error {
 	c.me.Lock()
+	defer c.me.Unlock()
 	var found *Item[K, V]
 	c.Root, found = Delete(c.Root, key)
-	found.Value.Stop()
-	c.me.Unlock()
+	if found != nil {
+		return found.Value.Stop()
+	}
+
+	return nil
 }
 
+// Get returns a worker from the pool.
 func (c *WorkerPool[K, V]) Get(key K) *Item[K, V] {
 	c.me.Lock()
 	itm := Search(c.Root, key)

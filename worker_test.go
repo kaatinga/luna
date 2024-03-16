@@ -1,23 +1,55 @@
-package luna
+package luna_test
 
 import (
+	"errors"
+	"github.com/kaatinga/luna"
 	"testing"
 )
 
 type dummyWorker bool
 
-func (v dummyWorker) Start() {}
+func (v dummyWorker) Start() error {
+	return nil
+}
 
-func (v dummyWorker) Stop() {}
+func (v dummyWorker) Stop() error {
+	return nil
+}
+
+type dummyFailingWorker bool
+
+func (v dummyFailingWorker) Start() error {
+	return errors.New("dummy start error")
+}
+
+func (v dummyFailingWorker) Stop() error {
+	return nil
+}
+
+type dummyFailingStopWorker bool
+
+func (v dummyFailingStopWorker) Start() error {
+	return nil
+}
+
+func (v dummyFailingStopWorker) Stop() error {
+	return errors.New("dummy stop error")
+}
 
 func TestWorkerPool_Get(t *testing.T) {
-	worker := NewWorkerPool[string, dummyWorker]()
+	w := luna.NewWorkerPool[string, dummyWorker]()
 	const key string = "key"
 	const value = dummyWorker(true)
-	worker.Add(key, value)
+
+	t.Run("add item", func(t *testing.T) {
+		err := w.Add(key, value)
+		if err != nil {
+			t.Errorf("got %v, want %v", err, nil)
+		}
+	})
 
 	t.Run("get existing", func(t *testing.T) {
-		got := worker.Get(key)
+		got := w.Get(key)
 		if got == nil {
 			t.Errorf("got %v, want %v", got, key)
 		}
@@ -32,17 +64,81 @@ func TestWorkerPool_Get(t *testing.T) {
 	})
 
 	t.Run("get non-existing", func(t *testing.T) {
-		got := worker.Get("non-existing")
+		got := w.Get("non-existing")
 		if got != nil {
 			t.Errorf("got %v, want %v", got, nil)
 		}
 	})
 
 	t.Run("get after delete", func(t *testing.T) {
-		worker.Delete(key)
-		got := worker.Get(key)
+		_ = w.Delete(key)
+		got := w.Get(key)
 		if got != nil {
 			t.Errorf("got %v, want %v", got, nil)
 		}
 	})
+
+	t.Run("delete one more time", func(t *testing.T) {
+		_ = w.Delete(key)
+	})
+
+	failingW := luna.NewWorkerPool[string, dummyFailingWorker]()
+	failingValue := dummyFailingWorker(true)
+
+	t.Run("worker failed to start", func(t *testing.T) {
+		if err := failingW.Add(key, failingValue); err == nil {
+			t.Errorf("got %v, want %v", err, "dummy start error")
+		}
+	})
+
+	t.Run("get failed worker", func(t *testing.T) {
+		if got := failingW.Get(key); got != nil {
+			t.Errorf("got %v, want %v", got, nil)
+		}
+	})
+}
+
+func TestWorkerPool_Delete(t *testing.T) {
+	w := luna.NewWorkerPool[string, dummyWorker]()
+	const key string = "key"
+	const value = dummyWorker(true)
+
+	w.Add(key, value)
+	err := w.Delete(key)
+	if err != nil {
+		t.Errorf("got %v, want %v", err, nil)
+	}
+
+	failingStopW := luna.NewWorkerPool[string, dummyFailingStopWorker]()
+	failingStopW.Add(key, true)
+	err = failingStopW.Delete(key)
+	if err == nil || err.Error() != "dummy stop error" {
+		t.Errorf("expected 'dummy stop error', got %v", err)
+	}
+}
+
+func TestWorkerPool_Do(t *testing.T) {
+	w := luna.NewWorkerPool[string, dummyWorker]()
+	const key string = "key"
+	const value = dummyWorker(true)
+
+	w.Add(key, value)
+
+	executed := false
+	w.Do(key, func(item *luna.Item[string, dummyWorker]) {
+		executed = true
+	})
+
+	if !executed {
+		t.Errorf("expected function to be executed")
+	}
+
+	executed = false
+	w.Do("non-existing", func(item *luna.Item[string, dummyWorker]) {
+		executed = true
+	})
+
+	if executed {
+		t.Errorf("function should not be executed for non-existing worker")
+	}
 }

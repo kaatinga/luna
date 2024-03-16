@@ -1,5 +1,15 @@
 package luna
 
+// AVL Tree Implementation
+//
+// The AVL tree is a self-balancing binary search tree algorithm, ensuring that the tree remains balanced at all times. This implementation is based on the original concept of AVL trees as introduced by Georgy Adelson-Velsky and Evgenii Landis in 1962.
+//
+// Developers: Georgy Adelson-Velsky and Evgenii Landis
+// Year Introduced: 1962
+// Publication: "An algorithm for the organization of information."
+//
+// This code is an implementation of the AVL tree algorithm, adhering to the original principles of maintaining balanced heights to ensure O(log n) time complexity for insertions, deletions, and lookups. Modifications and optimizations may have been applied to adapt to specific use cases.
+
 // Item is an AVL tree node.
 type Item[K Ordered, V worker] struct {
 	Key    K

@@ -15,8 +15,8 @@ func BenchmarkLuna_Add(b *testing.B) {
 	var name testV
 	wg := sync.WaitGroup{}
 	b.StartTimer()
+	wg.Add(1)
 	go func() {
-		wg.Add(1)
 		for i := 0; i < b.N; i++ {
 			name = randomUserName()
 			ns = append(ns, name)
@@ -29,6 +29,7 @@ func BenchmarkLuna_Add(b *testing.B) {
 		}
 		wg.Done()
 	}()
+
 	for i := 0; i < len(ns); i++ {
 		_ = c.Delete(string(ns[i]))
 	}

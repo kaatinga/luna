@@ -11,14 +11,14 @@ type worker interface {
 }
 
 // WorkerPool is a pool of workers.
-type WorkerPool[K Ordered, V worker] struct {
+type WorkerPool[K ordered, V worker] struct {
 	Root *Item[K, V]
 
 	me sync.Mutex
 }
 
 // NewWorkerPool creates a new instance of WorkerPool.
-func NewWorkerPool[K Ordered, V worker]() *WorkerPool[K, V] {
+func NewWorkerPool[K ordered, V worker]() *WorkerPool[K, V] {
 	return &WorkerPool[K, V]{}
 }
 

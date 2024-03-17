@@ -11,7 +11,7 @@ package luna
 // This code is an implementation of the AVL tree algorithm, adhering to the original principles of maintaining balanced heights to ensure O(log n) time complexity for insertions, deletions, and lookups. Modifications and optimizations may have been applied to adapt to specific use cases.
 
 // Item is an AVL tree node.
-type Item[K Ordered, V worker] struct {
+type Item[K ordered, V worker] struct {
 	Key    K
 	Value  V
 	height int8
@@ -19,7 +19,7 @@ type Item[K Ordered, V worker] struct {
 	right  *Item[K, V]
 }
 
-func Insert[K Ordered, V worker](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {
+func Insert[K ordered, V worker](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {
 	if root == nil {
 		return insert
 	}
@@ -32,29 +32,28 @@ func Insert[K Ordered, V worker](root *Item[K, V], insert *Item[K, V]) *Item[K, 
 	return balanceItem(root)
 }
 
-func height[K Ordered, V worker](item *Item[K, V]) int8 {
+func height[K ordered, V worker](item *Item[K, V]) int8 {
 	if item == nil {
 		return 0
 	}
 	return item.height
 }
 
-func balance[K Ordered, V worker](item *Item[K, V]) int8 {
+func balance[K ordered, V worker](item *Item[K, V]) int8 {
 	if item == nil {
 		return 0
 	}
 	return height(item.right) - height(item.left)
 }
 
-func fixHeight[K Ordered, V worker](item *Item[K, V]) {
+func fixHeight[K ordered, V worker](item *Item[K, V]) {
 	if item == nil {
 		return
 	}
 	item.height = max(height(item.left), height(item.right)) + 1
 }
 
-func rotateRight[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
-	// fmt.Printf("rotateRight: %v\n", item.Key)
+func rotateRight[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	left := item.left
 	item.left = left.right
 	left.right = item
@@ -63,8 +62,7 @@ func rotateRight[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	return left
 }
 
-func rotateLeft[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
-	// fmt.Printf("rotateLeft: %v\n", item.Key)
+func rotateLeft[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	right := item.right
 	item.right = right.left
 	right.left = item
@@ -73,25 +71,26 @@ func rotateLeft[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	return right
 }
 
-func balanceItem[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
+func balanceItem[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	fixHeight(item)
-	if balance(item) == 2 {
+	switch balance(item) {
+	case 2:
 		if balance(item.right) < 0 {
 			item.right = rotateRight(item.right)
 		}
-		return rotateLeft(item)
-	}
-	if balance(item) == -2 {
+		item = rotateLeft(item)
+	case -2:
 		if balance(item.left) > 0 {
 			item.left = rotateLeft(item.left)
 		}
-		return rotateRight(item)
+		item = rotateRight(item)
 	}
+
 	return item
 }
 
 // Search searches for an item in the tree.
-func Search[K Ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
+func Search[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
 	// if item != nil {
 	// log.Println("searching in", item.Key)
 	// }
@@ -113,7 +112,7 @@ func Search[K Ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
 }
 
 // Delete deletes an item from the tree.
-func Delete[K Ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
+func Delete[K ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
 	if item == nil {
 		return nil, nil
 	}
@@ -141,7 +140,7 @@ func Delete[K Ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Item[K,
 	return balanceItem(item), found
 }
 
-func deleteMin[K Ordered, V worker](item *Item[K, V]) *Item[K, V] {
+func deleteMin[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	if item.left == nil {
 		return item.right
 	}

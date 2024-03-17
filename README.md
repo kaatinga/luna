@@ -35,12 +35,12 @@ import (
 
 type myWorker struct{}
 
-func (m myWorker) Start() error {
+func (myWorker) Start() error {
 	fmt.Println("Worker started")
 	return nil
 }
 
-func (m myWorker) Stop() error {
+func (myWorker) Stop() error {
 	fmt.Println("Worker stopped")
 	return nil
 }
@@ -48,8 +48,7 @@ func (m myWorker) Stop() error {
 func main() {
 	pool := luna.NewWorkerPool[string, myWorker]()
 
-	err := pool.Add("worker1", myWorker{})
-	if err != nil {
+	if err := pool.Add("worker1", myWorker{}); err != nil {
 		fmt.Printf("Error adding worker: %v\n", err)
 	}
 
@@ -57,8 +56,7 @@ func main() {
 		fmt.Println("Executing operation on worker")
 	})
 
-	err = pool.Delete("worker1")
-	if err != nil {
+	if err := pool.Delete("worker1"); err != nil {
 		fmt.Printf("Error removing worker: %v\n", err)
 	}
 }
@@ -78,4 +76,4 @@ Contributions are welcome! Please feel free to submit a pull request or open iss
 
 ## License
 
-[MIT License](LICENSE.md)
+[MIT License](LICENSE)

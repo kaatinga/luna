@@ -4,7 +4,7 @@ import (
 	"sync"
 )
 
-// workerPool is a trait for the workers that can be added to the pool.
+// worker is a trait for the workers that can be added to the pool.
 type worker interface {
 	Start() error
 	Stop() error
@@ -39,7 +39,7 @@ func (c *WorkerPool[K, V]) Add(key K, value V) error {
 	return nil
 }
 
-// deleteNode removes a worker from the pool.
+// Delete removes a worker from the pool.
 func (c *WorkerPool[K, V]) Delete(key K) error {
 	c.me.Lock()
 	defer c.me.Unlock()

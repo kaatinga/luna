@@ -99,23 +99,17 @@ func balanceItem[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 
 // searchNode searches for an item in the tree.
 func searchNode[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
-	// if item != nil {
-	// log.Println("searching in", item.key)
-	// }
-
 	if item == nil || item.key == key {
 		// if item != nil && item.key == key {
 		// log.Println("item found", item)
 		// }
 		return item
 	}
-	// printItem(item)
 	if key < item.key {
 		// log.Println("searching left")
 		return searchNode(item.left, key)
 	}
 
-	// log.Println("searching right")
 	return searchNode(item.right, key)
 }
 

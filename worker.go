@@ -27,11 +27,11 @@ func (c *WorkerPool[K, V]) Add(key K, value V) error {
 	c.me.Lock()
 	defer c.me.Unlock()
 	newItem := &Item[K, V]{
-		Key:   key,
-		Value: value,
+		key:   key,
+		value: value,
 	}
 	c.Root = insertNode(c.Root, newItem)
-	if err := newItem.Value.Start(); err != nil {
+	if err := newItem.value.Start(); err != nil {
 		c.Root, _ = deleteNode(c.Root, key)
 		return err
 	}
@@ -46,7 +46,7 @@ func (c *WorkerPool[K, V]) Delete(key K) error {
 	var found *Item[K, V]
 	c.Root, found = deleteNode(c.Root, key)
 	if found != nil {
-		return found.Value.Stop()
+		return found.value.Stop()
 	}
 
 	return nil

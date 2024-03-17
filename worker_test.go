@@ -54,12 +54,12 @@ func TestWorkerPool_Get(t *testing.T) {
 			t.Errorf("got %v, want %v", got, key)
 		}
 
-		if got.Value != value {
-			t.Errorf("got %v, want %v", got.Value, value)
+		if got.Value() != value {
+			t.Errorf("got %v, want %v", got.Value(), value)
 		}
 
-		if got.Key != key {
-			t.Errorf("got %v, want %v", got.Key, key)
+		if got.Key() != key {
+			t.Errorf("got %v, want %v", got.Key(), key)
 		}
 	})
 

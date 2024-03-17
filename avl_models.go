@@ -12,18 +12,26 @@ package luna
 
 // Item is an AVL tree node.
 type Item[K ordered, V worker] struct {
-	Key    K
-	Value  V
+	key    K
+	value  V
 	height int8
 	left   *Item[K, V]
 	right  *Item[K, V]
+}
+
+func (i *Item[K, V]) Key() K {
+	return i.key
+}
+
+func (i *Item[K, V]) Value() V {
+	return i.value
 }
 
 func insertNode[K ordered, V worker](root *Item[K, V], ins *Item[K, V]) *Item[K, V] {
 	if root == nil {
 		return ins
 	}
-	if ins.Key < root.Key {
+	if ins.key < root.key {
 		root.left = insertNode(root.left, ins)
 	} else {
 		root.right = insertNode(root.right, ins)
@@ -92,17 +100,17 @@ func balanceItem[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 // searchNode searches for an item in the tree.
 func searchNode[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
 	// if item != nil {
-	// log.Println("searching in", item.Key)
+	// log.Println("searching in", item.key)
 	// }
 
-	if item == nil || item.Key == key {
-		// if item != nil && item.Key == key {
+	if item == nil || item.key == key {
+		// if item != nil && item.key == key {
 		// log.Println("item found", item)
 		// }
 		return item
 	}
 	// printItem(item)
-	if key < item.Key {
+	if key < item.key {
 		// log.Println("searching left")
 		return searchNode(item.left, key)
 	}
@@ -117,9 +125,9 @@ func deleteNode[K ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Ite
 		return nil, nil
 	}
 	var found *Item[K, V]
-	if key < item.Key {
+	if key < item.key {
 		item.left, found = deleteNode(item.left, key)
-	} else if key > item.Key {
+	} else if key > item.key {
 		item.right, found = deleteNode(item.right, key)
 	} else {
 		// item found

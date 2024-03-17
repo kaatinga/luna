@@ -21,7 +21,7 @@ func checkBalanceFactor[K ordered, V worker](t *testing.T, item *Item[K, V]) {
 	}
 	bal := balance(item)
 	if bal < -1 || bal > 1 {
-		t.Errorf("Balance factor of node %v is %d, which is outside the range [-1, 1]", item.Key, bal)
+		t.Errorf("Balance factor of node %v is %d, which is outside the range [-1, 1]", item.key, bal)
 	}
 	checkBalanceFactor(t, item.left)
 	checkBalanceFactor(t, item.right)
@@ -32,7 +32,7 @@ func TestInsertions(t *testing.T) {
 	items := []int{3, 2, 1, 4, 5}
 
 	for _, key := range items {
-		item := &Item[int, dummyWorker]{Key: key, Value: dummyWorker(true)}
+		item := &Item[int, dummyWorker]{key: key, value: dummyWorker(true)}
 		tree = insertNode(tree, item)
 		checkBalanceFactor(t, tree)
 	}
@@ -41,7 +41,7 @@ func TestInsertions(t *testing.T) {
 func TestDeletions(t *testing.T) {
 	var tree = new(Item[int, dummyWorker])
 	for _, key := range []int{5, 2, 1, 4, 3, 6} {
-		tree = insertNode(tree, &Item[int, dummyWorker]{Key: key, Value: true})
+		tree = insertNode(tree, &Item[int, dummyWorker]{key: key, value: true})
 	}
 
 	keysToDelete := []int{1, 6}

@@ -56,9 +56,9 @@ func (v testV) Stop() error {
 //	for i := 0; i < 1000; i++ {
 //		name = randomUserName()
 //		ns = append(ns, name)
-//		c.Insert(name, testV(name))
+//		c.insertNode(name, testV(name))
 //	}
 //	for i := 0; i < len(ns); i++ {
-//		c.Delete(ns[i])
+//		c.deleteNode(ns[i])
 //	}
 //}

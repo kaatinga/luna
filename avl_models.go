@@ -2,7 +2,7 @@ package luna
 
 // AVL Tree Implementation
 //
-// The AVL tree is a self-balancing binary search tree algorithm, ensuring that the tree remains balanced at all times. This implementation is based on the original concept of AVL trees as introduced by Georgy Adelson-Velsky and Evgenii Landis in 1962.
+// The AVL tree is a self-balancing binary searchNode tree algorithm, ensuring that the tree remains balanced at all times. This implementation is based on the original concept of AVL trees as introduced by Georgy Adelson-Velsky and Evgenii Landis in 1962.
 //
 // Developers: Georgy Adelson-Velsky and Evgenii Landis
 // Year Introduced: 1962
@@ -19,14 +19,14 @@ type Item[K ordered, V worker] struct {
 	right  *Item[K, V]
 }
 
-func Insert[K ordered, V worker](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {
+func insertNode[K ordered, V worker](root *Item[K, V], ins *Item[K, V]) *Item[K, V] {
 	if root == nil {
-		return insert
+		return ins
 	}
-	if insert.Key < root.Key {
-		root.left = Insert(root.left, insert)
+	if ins.Key < root.Key {
+		root.left = insertNode(root.left, ins)
 	} else {
-		root.right = Insert(root.right, insert)
+		root.right = insertNode(root.right, ins)
 	}
 
 	return balanceItem(root)
@@ -89,8 +89,8 @@ func balanceItem[K ordered, V worker](item *Item[K, V]) *Item[K, V] {
 	return item
 }
 
-// Search searches for an item in the tree.
-func Search[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
+// searchNode searches for an item in the tree.
+func searchNode[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
 	// if item != nil {
 	// log.Println("searching in", item.Key)
 	// }
@@ -104,23 +104,23 @@ func Search[K ordered, V worker](item *Item[K, V], key K) *Item[K, V] {
 	// printItem(item)
 	if key < item.Key {
 		// log.Println("searching left")
-		return Search(item.left, key)
+		return searchNode(item.left, key)
 	}
 
 	// log.Println("searching right")
-	return Search(item.right, key)
+	return searchNode(item.right, key)
 }
 
-// Delete deletes an item from the tree.
-func Delete[K ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
+// deleteNode deletes an item from the tree.
+func deleteNode[K ordered, V worker](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
 	if item == nil {
 		return nil, nil
 	}
 	var found *Item[K, V]
 	if key < item.Key {
-		item.left, found = Delete(item.left, key)
+		item.left, found = deleteNode(item.left, key)
 	} else if key > item.Key {
-		item.right, found = Delete(item.right, key)
+		item.right, found = deleteNode(item.right, key)
 	} else {
 		// item found
 		left := item.left

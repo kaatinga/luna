@@ -30,21 +30,21 @@ func (c *WorkerPool[K, V]) Add(key K, value V) error {
 		Key:   key,
 		Value: value,
 	}
-	c.Root = Insert(c.Root, newItem)
+	c.Root = insertNode(c.Root, newItem)
 	if err := newItem.Value.Start(); err != nil {
-		c.Root, _ = Delete(c.Root, key)
+		c.Root, _ = deleteNode(c.Root, key)
 		return err
 	}
 
 	return nil
 }
 
-// Delete removes a worker from the pool.
+// deleteNode removes a worker from the pool.
 func (c *WorkerPool[K, V]) Delete(key K) error {
 	c.me.Lock()
 	defer c.me.Unlock()
 	var found *Item[K, V]
-	c.Root, found = Delete(c.Root, key)
+	c.Root, found = deleteNode(c.Root, key)
 	if found != nil {
 		return found.Value.Stop()
 	}
@@ -55,7 +55,7 @@ func (c *WorkerPool[K, V]) Delete(key K) error {
 // Get returns a worker from the pool.
 func (c *WorkerPool[K, V]) Get(key K) *Item[K, V] {
 	c.me.Lock()
-	itm := Search(c.Root, key)
+	itm := searchNode(c.Root, key)
 	c.me.Unlock()
 	return itm
 }
@@ -63,7 +63,7 @@ func (c *WorkerPool[K, V]) Get(key K) *Item[K, V] {
 // Do executes a function on the item with the given key and updates the item atomically if necessary.
 func (c *WorkerPool[K, V]) Do(key K, f func(*Item[K, V])) (executed bool) {
 	c.me.Lock()
-	itm := Search(c.Root, key)
+	itm := searchNode(c.Root, key)
 	if itm != nil {
 		f(itm)
 		executed = true

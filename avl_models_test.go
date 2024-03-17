@@ -33,7 +33,7 @@ func TestInsertions(t *testing.T) {
 
 	for _, key := range items {
 		item := &Item[int, dummyWorker]{Key: key, Value: dummyWorker(true)}
-		tree = Insert(tree, item)
+		tree = insertNode(tree, item)
 		checkBalanceFactor(t, tree)
 	}
 }
@@ -41,13 +41,13 @@ func TestInsertions(t *testing.T) {
 func TestDeletions(t *testing.T) {
 	var tree = new(Item[int, dummyWorker])
 	for _, key := range []int{5, 2, 1, 4, 3, 6} {
-		tree = Insert(tree, &Item[int, dummyWorker]{Key: key, Value: true})
+		tree = insertNode(tree, &Item[int, dummyWorker]{Key: key, Value: true})
 	}
 
 	keysToDelete := []int{1, 6}
 	for _, key := range keysToDelete {
 		var found *Item[int, dummyWorker]
-		tree, found = Delete(tree, key)
+		tree, found = deleteNode(tree, key)
 		if found == nil {
 			t.Errorf("Did not find item with key %d to delete", key)
 		} else {

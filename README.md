@@ -76,4 +76,4 @@ Contributions are welcome! Please feel free to submit a pull request or open iss
 
 ## License
 
-[MIT License](LICENSE)
+[MIT License](LICENSE)[![Tests](https://github.com/kaatinga/luna/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kaatinga/luna/actions/workflows/test.yml)

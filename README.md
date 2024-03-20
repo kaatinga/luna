@@ -1,3 +1,4 @@
+[![Tests](https://github.com/kaatinga/luna/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kaatinga/luna/actions/workflows/test.yml)
 [![codecov](https://codecov.io/gh/kaatinga/luna/graph/badge.svg?token=277RYDJB2J)](https://codecov.io/gh/kaatinga/luna)
 [![lint workflow](https://github.com/kaatinga/luna/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/luna/luna/actions?query=workflow%3Alinter)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/kaatinga/luna/blob/main/LICENSE)
@@ -76,4 +77,4 @@ Contributions are welcome! Please feel free to submit a pull request or open iss
 
 ## License
 
-[MIT License](LICENSE)[![Tests](https://github.com/kaatinga/luna/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kaatinga/luna/actions/workflows/test.yml)
+[MIT License](LICENSE)

@@ -39,6 +39,27 @@ func (c *WorkerPool[K, V]) Add(key K, value V) error {
 	return nil
 }
 
+// AddUnlessExists adds a new worker to the pool if it does not exist.
+func (c *WorkerPool[K, V]) AddUnlessExists(key K, value V) (*Item[K, V], error) {
+	c.me.Lock()
+	defer c.me.Unlock()
+	if item := searchNode(c.Root, key); item != nil {
+		return item, nil
+	}
+
+	newItem := &Item[K, V]{
+		key:   key,
+		value: value,
+	}
+	c.Root = insertNode(c.Root, newItem)
+	if err := newItem.value.Start(); err != nil {
+		c.Root, _ = deleteNode(c.Root, key)
+		return nil, err
+	}
+
+	return newItem, nil
+}
+
 // Delete removes a worker from the pool.
 func (c *WorkerPool[K, V]) Delete(key K) error {
 	c.me.Lock()

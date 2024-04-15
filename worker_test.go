@@ -2,8 +2,9 @@ package luna_test
 
 import (
 	"errors"
-	"github.com/kaatinga/luna"
 	"testing"
+
+	"github.com/kaatinga/luna"
 )
 
 type dummyWorker bool

@@ -58,6 +58,6 @@ var surnames = []string{
 }
 
 // Generate random user name
-func randomUserName() testV {
-	return testV(fmt.Sprintf("%s %s", names[rand.Intn(len(names))], surnames[rand.Intn(len(surnames))]))
+func randomUserName() string {
+	return fmt.Sprintf("%s %s", names[rand.Intn(len(names))], surnames[rand.Intn(len(surnames))])
 }

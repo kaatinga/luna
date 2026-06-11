@@ -2,93 +2,56 @@ package luna
 
 import (
 	"sync"
+
+	"github.com/kaatinga/luna/internal/item"
 )
 
-// worker is a trait for the workers that can be added to the pool.
-type worker interface {
-	Start() error
-	Stop() error
+type Worker interface {
+	Start()
+	Stop()
 }
 
-// WorkerPool is a pool of workers.
-type WorkerPool[K ordered, V worker] struct {
-	Root *Item[K, V]
+type WorkerPool[K item.Ordered, V Worker] struct {
+	Root *item.Item[K, V]
 
 	me sync.Mutex
 }
 
-// NewWorkerPool creates a new instance of WorkerPool.
-func NewWorkerPool[K ordered, V worker]() *WorkerPool[K, V] {
+func NewWorkerPool[K item.Ordered, V Worker]() *WorkerPool[K, V] {
 	return &WorkerPool[K, V]{}
 }
 
-// Add adds a new worker to the pool.
-func (c *WorkerPool[K, V]) Add(key K, value V) error {
+func (c *WorkerPool[K, V]) Insert(key K, value V) {
 	c.me.Lock()
-	defer c.me.Unlock()
-	newItem := &Item[K, V]{
-		key:   key,
-		value: value,
+	newItem := &item.Item[K, V]{
+		Key:   key,
+		Value: value,
 	}
-	c.Root = insertNode(c.Root, newItem)
-	if err := newItem.value.Start(); err != nil {
-		c.Root, _ = deleteNode(c.Root, key)
-		return err
-	}
-
-	return nil
+	c.Root = item.Insert(c.Root, newItem)
+	c.me.Unlock()
+	newItem.Value.Start()
 }
 
-// AddUnlessExists adds a new worker to the pool if it does not exist.
-func (c *WorkerPool[K, V]) AddUnlessExists(key K, value V) (*Item[K, V], error) {
+func (c *WorkerPool[K, V]) Delete(key K) {
 	c.me.Lock()
-	defer c.me.Unlock()
-	if item := searchNode(c.Root, key); item != nil {
-		return item, nil
-	}
-
-	newItem := &Item[K, V]{
-		key:   key,
-		value: value,
-	}
-	c.Root = insertNode(c.Root, newItem)
-	if err := newItem.value.Start(); err != nil {
-		c.Root, _ = deleteNode(c.Root, key)
-		return nil, err
-	}
-
-	return newItem, nil
+	var found *item.Item[K, V]
+	c.Root, found = item.Delete(c.Root, key)
+	c.me.Unlock()
+	found.Value.Stop()
 }
 
-// Delete removes a worker from the pool.
-func (c *WorkerPool[K, V]) Delete(key K) error {
+func (c *WorkerPool[K, V]) Get(key K) *item.Item[K, V] {
 	c.me.Lock()
-	defer c.me.Unlock()
-	var found *Item[K, V]
-	c.Root, found = deleteNode(c.Root, key)
-	if found != nil {
-		return found.value.Stop()
-	}
-
-	return nil
-}
-
-// Get returns a worker from the pool.
-func (c *WorkerPool[K, V]) Get(key K) *Item[K, V] {
-	c.me.Lock()
-	itm := searchNode(c.Root, key)
+	itm := item.Search(c.Root, key)
 	c.me.Unlock()
 	return itm
 }
 
-// Do executes a function on the item with the given key and updates the item atomically if necessary.
-func (c *WorkerPool[K, V]) Do(key K, f func(*Item[K, V])) (executed bool) {
+func (c *WorkerPool[K, V]) Do(key K, f func(*item.Item[K, V]) *item.Item[K, V]) {
 	c.me.Lock()
-	itm := searchNode(c.Root, key)
+	itm := item.Search(c.Root, key)
 	if itm != nil {
-		f(itm)
-		executed = true
+		itm = f(itm)
 	}
 	c.me.Unlock()
-	return
 }

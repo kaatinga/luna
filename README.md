@@ -1,80 +1,81 @@
-[![Tests](https://github.com/kaatinga/luna/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/kaatinga/luna/actions/workflows/test.yml)
-[![codecov](https://codecov.io/gh/kaatinga/luna/graph/badge.svg?token=277RYDJB2J)](https://codecov.io/gh/kaatinga/luna)
-[![lint workflow](https://github.com/kaatinga/luna/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/luna/luna/actions?query=workflow%3Alinter)
-[![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/kaatinga/luna/blob/main/LICENSE)
-[![help wanted](https://img.shields.io/badge/Help%20wanted-True-yellow.svg)](https://github.com/luna/strconv/issues?q=is%3Aopen+is%3Aissue+label%3A%22help+wanted%22)
+# luna
 
-# Luna
+Thread-Safe Read-Through Cache for Golang.
 
-Luna is a flexible and generic worker pool implementation in Go, designed to manage and orchestrate workers efficiently. It supports generic types for keys and workers, allowing for a wide range of applications. Workers in the pool can be started, stopped, and have operations executed upon them, providing a robust framework for concurrent task execution.
+A robust package for Golang that provides a thread-safe read-through caching mechanism with TTL (Time To Live) and touch
+functionalities.
 
-## Features
+## Features:
 
-- Generic implementation supporting any key and worker types.
-- Thread-safe operations to add, delete, and manipulate workers.
-- Error handling for start and stop operations of workers.
+- **Thread-Safe**: Efficiently handles concurrent reads and writes without data corruption.
+- **Read-Through**: Auto-fetching of values using the provided loader when not found in the cache.
+- **TTL**: Set expiry duration for items in the cache.
+- **Touch**: Ability to extend an item's expiration time upon retrieval.
 
 ## Installation
 
-To install Luna, you need a working Go environment. Luna can be installed using `go get`:
-
-```sh
+```bash
 go get github.com/kaatinga/luna
 ```
 
 ## Usage
 
-Here's a simple example of how to use Luna:
+### Initializing the Cache
 
 ```go
-package main
-
-import (
-	"fmt"
-	"github.com/kaatinga/luna"
-)
-
-type myWorker struct{}
-
-func (myWorker) Start() error {
-	fmt.Println("Worker started")
-	return nil
-}
-
-func (myWorker) Stop() error {
-	fmt.Println("Worker stopped")
-	return nil
-}
-
-func main() {
-	pool := luna.NewWorkerPool[string, myWorker]()
-
-	if err := pool.Add("worker1", myWorker{}); err != nil {
-		fmt.Printf("Error adding worker: %v\n", err)
-	}
-
-	pool.Do("worker1", func(item *luna.Item[string, myWorker]) {
-		fmt.Println("Executing operation on worker")
-	})
-
-	if err := pool.Delete("worker1"); err != nil {
-		fmt.Printf("Error removing worker: %v\n", err)
-	}
-}
+cache := NewCache(WithTTL(time.Minute * 10), WithLoader(customLoaderFunction))
 ```
 
-## Testing
+### Inserting an Item
 
-To run the tests for Luna, navigate to the package directory and use the Go tool:
-
-```sh
-go test ./...
+```go
+cache.Insert("key", "value")
 ```
 
-## Contributing
+### Deleting an Item
 
-Contributions are welcome! Please feel free to submit a pull request or open issues to discuss potential improvements or features.
+```go
+cache.Delete("key")
+```
+
+### Retrieving an Item
+
+```go
+item := cache.Get("key")
+```
+
+## Configuration Options
+
+### WithTTL
+
+Sets the TTL of the cache. Note: It has no effect when passed into `Get()`.
+
+```go
+WithTTL(time.Duration)
+```
+
+### WithLoader
+
+Sets the loader of the cache. If used with `Get()`, it sets an ephemeral loader that is used instead of the cache's
+default one.
+
+```go
+WithLoader(loaderFunction)
+```
+
+### WithDisableTouchOnHit
+
+Prevents the cache instance from extending/touching an item's expiration timestamp when it's being retrieved. If passed
+into `Get()`, it overrides the default value of the cache.
+
+```go
+WithDisableTouchOnHit()
+```
+
+## Contribution
+
+Pull requests are welcome! For major changes, please open an issue first to discuss the change you'd like to make.
 
 ## License
 
-[MIT License](LICENSE)
+[MIT License](LICENSE.md)

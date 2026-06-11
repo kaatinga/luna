@@ -9,7 +9,6 @@ import (
 type Cache[K item.Ordered, V any] struct {
 	Root *item.Item[K, V]
 	*Janitor[K, V]
-	//jobs chan *Action[K, V]
 	options[K, V]
 
 	me sync.Mutex
@@ -18,7 +17,6 @@ type Cache[K item.Ordered, V any] struct {
 // NewCache creates a new cache instance. The default TTL is 30 minutes.
 func NewCache[K item.Ordered, V any](opts ...Option[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
-		//jobs:    make(chan *Action[K, V], 100),
 		Janitor: NewJanitor[K, V](),
 		options: defaultOptions[K, V](),
 	}

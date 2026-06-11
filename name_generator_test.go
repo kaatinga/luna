@@ -1,4 +1,4 @@
-package luna_test
+package luna
 
 import (
 	"fmt"

@@ -1,6 +1,7 @@
 package luna
 
 import (
+	"math"
 	"sync"
 	"time"
 
@@ -35,7 +36,6 @@ func NewCache[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
 	c := &Cache[K, V]{
 		table:   swiss.NewTable[K, V](),
 		options: defaultOptions[K, V](),
-		timer:   time.NewTimer(year),
 		stop:    make(chan struct{}),
 	}
 
@@ -43,7 +43,15 @@ func NewCache[K comparable, V any](opts ...Option[K, V]) *Cache[K, V] {
 		o(&c.options)
 	}
 
-	go c.evictionWorker()
+	if c.ttl <= 0 {
+		// entries never expire: no timer, no eviction goroutine, and
+		// nothing to touch on hit
+		c.noTTL = true
+		c.disableTouchOnHit = true
+	} else {
+		c.timer = time.NewTimer(year)
+		go c.evictionWorker()
+	}
 
 	return c
 }
@@ -61,9 +69,16 @@ func (c *Cache[K, V]) Insert(key K, value V) {
 	c.me.Lock()
 	entry, existed := c.table.Insert(hash, key)
 	entry.Value = value
-	if existed {
+	switch {
+	case c.noTTL:
+		// the entry never joins the eviction list; an overwrite keeps
+		// the sentinel already in place
+		if !existed {
+			entry.ExpirationTime = math.MaxInt64
+		}
+	case existed:
 		c.touch(entry)
-	} else {
+	default:
 		c.addToEvictionList(entry)
 	}
 	c.me.Unlock()
@@ -79,8 +94,25 @@ func (c *Cache[K, V]) Delete(key K) {
 
 // Get returns the value stored under the key. Expired items are reported as
 // missing even if they are not evicted yet. Unless WithDisableTouchOnHit is
-// set, a hit refreshes the item's expiration.
+// set, a hit refreshes the item's expiration. On a miss, a loader set via
+// WithLoader is invoked outside the lock; see the option for the contract.
 func (c *Cache[K, V]) Get(key K) (V, bool) {
+	value, ok := c.lookup(key)
+	if ok || c.loader == nil {
+		return value, ok
+	}
+	value, ok = c.loader(key)
+	if !ok {
+		var zero V
+		return zero, false
+	}
+	c.Insert(key, value)
+	return value, true
+}
+
+// lookup retrieves the value under the key, touching the entry on a hit
+// unless touch-on-hit is disabled.
+func (c *Cache[K, V]) lookup(key K) (V, bool) {
 	hash := c.table.Hash(key)
 	c.me.Lock()
 	entry := c.table.Get(hash, key)
@@ -97,6 +129,29 @@ func (c *Cache[K, V]) Get(key K) (V, bool) {
 	return value, true
 }
 
+// GetAndDelete removes the key and returns the value it held, all under one
+// lock acquisition. Expired items are removed but reported as missing,
+// consistent with Get. The loader is never invoked.
+func (c *Cache[K, V]) GetAndDelete(key K) (V, bool) {
+	hash := c.table.Hash(key)
+	c.me.Lock()
+	entry := c.table.Delete(hash, key)
+	if entry == nil {
+		c.me.Unlock()
+		var zero V
+		return zero, false
+	}
+	c.deleteFromEvictionList(entry)
+	value := entry.Value
+	expired := entry.ExpirationTime <= time.Now().UnixNano()
+	c.me.Unlock()
+	if expired {
+		var zero V
+		return zero, false
+	}
+	return value, true
+}
+
 // Len returns the number of items in the cache, including expired but not
 // yet evicted ones.
 func (c *Cache[K, V]) Len() int {
@@ -106,7 +161,8 @@ func (c *Cache[K, V]) Len() int {
 }
 
 // Stop terminates the eviction goroutine. The cache must not be used after
-// Stop has been called.
+// Stop has been called. A NoTTL cache has no goroutine, but Stop remains
+// safe to call.
 func (c *Cache[K, V]) Stop() {
 	close(c.stop)
 }

@@ -19,11 +19,16 @@ deadline — no polling, no channels on the hot path.
 - **Zero dependencies** — stdlib only, `go.sum` is empty.
 - **Generic** — any `comparable` key (strings, ints, structs…), any value type.
 - **TTL with touch-on-hit** — retrieving an entry extends its life
-  (disable with `WithDisableTouchOnHit`).
+  (disable with `WithDisableTouchOnHit`). Pass `luna.NoTTL` to `WithTTL`
+  and entries never expire — no timer, no eviction goroutine at all.
+- **Loaders** — `WithLoader` fills the cache on a `Get` miss; the loader
+  runs outside the lock so a slow load never blocks other keys.
+- **One-time values** — `GetAndDelete` fetches and removes atomically,
+  handy for secrets and PRG-style form state.
 - **Two flavours** — `Cache` for single-goroutine-dominated workloads,
   `ShardedCache` (16 independent shards) for heavy concurrent use.
-- **Small API on purpose** — `Insert`, `Get`, `Delete`, `Len`, `Stop`. No
-  loaders, callbacks, capacity limits or per-item TTLs.
+- **Small API on purpose** — `Insert`, `Get`, `GetAndDelete`, `Delete`,
+  `Len`, `Stop`. No callbacks, capacity limits, metrics or per-item TTLs.
 
 ## Installation
 
@@ -68,6 +73,36 @@ cache := luna.NewShardedCache[string, int](
 )
 ```
 
+A loader turns the cache into a read-through cache — `Get` calls it on a
+miss and caches the result. The loader runs outside the cache lock, so
+concurrent `Get`s of the same cold key may each load it; the last result
+wins. Return `false` to report a miss without caching anything:
+
+```go
+limiters := luna.NewCache[string, *rate.Limiter](
+	luna.WithTTL[string, *rate.Limiter](15*time.Minute),
+	luna.WithLoader[string, *rate.Limiter](func(ip string) (*rate.Limiter, bool) {
+		return rate.NewLimiter(10, 30), true
+	}),
+)
+```
+
+For one-time values — secrets, PRG form state — `GetAndDelete` fetches and
+removes under a single lock acquisition (it never calls the loader):
+
+```go
+if secret, ok := cache.GetAndDelete(token); ok {
+	// secret can never be retrieved again
+}
+```
+
+A cache that should keep entries forever skips the eviction machinery
+entirely — no timer and no background goroutine are created:
+
+```go
+ids := luna.NewCache[string, string](luna.WithTTL[string, string](luna.NoTTL))
+```
+
 ## Benchmarks
 
 Measured against [jellydator/ttlcache/v3](https://github.com/jellydator/ttlcache)
@@ -91,9 +126,10 @@ ns/op at n=1,000 / 100,000 / 1,000,000 entries — lower is better:
 All luna operations are allocation-free except inserting a new key
 (one allocation — the entry itself).
 
-Honest framing: jellydator/ttlcache offers far more functionality (loaders,
-capacity limits, per-item TTLs, metrics, eviction callbacks). Luna trades
-that for a smaller, faster core. If you need those features, use ttlcache.
+Honest framing: jellydator/ttlcache offers more functionality (capacity
+limits, per-item TTLs, metrics, eviction callbacks, singleflight loader
+suppression). Luna trades that for a smaller, faster core. If you need
+those features, use ttlcache.
 
 ## How it works
 

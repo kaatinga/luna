@@ -47,6 +47,13 @@ func (c *ShardedCache[K, V]) Get(key K) (V, bool) {
 	return c.shard(key).Get(key)
 }
 
+// GetAndDelete removes the key and returns the value it held. Expired items
+// are removed but reported as missing, consistent with Get. The loader is
+// never invoked.
+func (c *ShardedCache[K, V]) GetAndDelete(key K) (V, bool) {
+	return c.shard(key).GetAndDelete(key)
+}
+
 // Len returns the number of items in the cache, including expired but not
 // yet evicted ones.
 func (c *ShardedCache[K, V]) Len() int {

@@ -1,39 +1,53 @@
 package item
 
-import (
-	"time"
-)
-
-// Item is an AVL tree node
+// Item is an AVL tree node. It also serves as a node of the intrusive
+// doubly-linked eviction list, so one allocation covers both structures.
 type Item[K Ordered, V any] struct {
 	Key    K
-	Value  V
-	Height int8
 	Left   *Item[K, V]
 	Right  *Item[K, V]
+	Height int8
+
+	Value V
 
 	// janitor fields
 
-	// - expiration time for eviction
-	ExpirationTime time.Time
+	// ExpirationTime is the eviction deadline in unix nanoseconds.
+	ExpirationTime int64
 
-	// - linked list for eviction
-
+	// eviction list links: NextItem points towards older items,
+	// PreviousItem towards newer ones.
 	NextItem     *Item[K, V]
 	PreviousItem *Item[K, V]
 }
 
-func Insert[K Ordered, V any](root *Item[K, V], insert *Item[K, V]) *Item[K, V] {
+// Insert inserts a key/value pair into the tree. If the key already exists,
+// the value is overwritten in place and no rebalancing happens.
+// It returns the new root, the node holding the key, and whether the key
+// already existed.
+func Insert[K Ordered, V any](root *Item[K, V], key K, value V) (*Item[K, V], *Item[K, V], bool) {
 	if root == nil {
-		return insert
-	}
-	if insert.Key < root.Key {
-		root.Left = Insert(root.Left, insert)
-	} else {
-		root.Right = Insert(root.Right, insert)
+		node := &Item[K, V]{Key: key, Value: value, Height: 1}
+		return node, node, false
 	}
 
-	return balanceItem(root)
+	if key == root.Key {
+		root.Value = value
+		return root, root, true
+	}
+
+	var node *Item[K, V]
+	var existed bool
+	if key < root.Key {
+		root.Left, node, existed = Insert(root.Left, key, value)
+	} else {
+		root.Right, node, existed = Insert(root.Right, key, value)
+	}
+	if existed {
+		return root, node, true
+	}
+
+	return balanceItem(root), node, false
 }
 
 func height[K Ordered, V any](item *Item[K, V]) int8 {
@@ -50,13 +64,6 @@ func balance[K Ordered, V any](item *Item[K, V]) int8 {
 	return height(item.Right) - height(item.Left)
 }
 
-func max(a, b int8) int8 {
-	if a > b {
-		return a
-	}
-	return b
-}
-
 func fixHeight[K Ordered, V any](item *Item[K, V]) {
 	if item == nil {
 		return
@@ -65,7 +72,6 @@ func fixHeight[K Ordered, V any](item *Item[K, V]) {
 }
 
 func rotateRight[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
-	// fmt.Printf("rotateRight: %v\n", item.Key)
 	left := item.Left
 	item.Left = left.Right
 	left.Right = item
@@ -75,7 +81,6 @@ func rotateRight[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 }
 
 func rotateLeft[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
-	// fmt.Printf("rotateLeft: %v\n", item.Key)
 	right := item.Right
 	item.Right = right.Left
 	right.Left = item
@@ -103,27 +108,18 @@ func balanceItem[K Ordered, V any](item *Item[K, V]) *Item[K, V] {
 
 // Search searches for an item in the tree.
 func Search[K Ordered, V any](item *Item[K, V], key K) *Item[K, V] {
-	// if item != nil {
-	// log.Println("searching in", item.Key)
-	// }
-
-	if item == nil || item.Key == key {
-		// if item != nil && item.Key == key {
-		// log.Println("item found", item)
-		// }
-		return item
+	for item != nil && item.Key != key {
+		if key < item.Key {
+			item = item.Left
+		} else {
+			item = item.Right
+		}
 	}
-	// printItem(item)
-	if key < item.Key {
-		// log.Println("searching left")
-		return Search(item.Left, key)
-	}
-
-	// log.Println("searching right")
-	return Search(item.Right, key)
+	return item
 }
 
-// Delete deletes an item from the tree.
+// Delete deletes an item from the tree. It returns the new root and the
+// deleted node, if any.
 func Delete[K Ordered, V any](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]) {
 	if item == nil {
 		return nil, nil
@@ -137,6 +133,7 @@ func Delete[K Ordered, V any](item *Item[K, V], key K) (*Item[K, V], *Item[K, V]
 		// item found
 		left := item.Left
 		right := item.Right
+		item.Left, item.Right = nil, nil
 		if right == nil {
 			return left, item
 		}

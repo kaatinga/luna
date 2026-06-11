@@ -17,9 +17,10 @@ type ttlCache interface {
 
 func variants(ttl time.Duration) map[string]ttlCache {
 	return map[string]ttlCache{
-		"avl":     NewCache[string, int](WithTTL[string, int](ttl)),
-		"sharded": NewShardedCache[string, int](WithTTL[string, int](ttl)),
-		"swiss":   NewSwissCache[string, int](WithTTL[string, int](ttl)),
+		"avl":           NewCache[string, int](WithTTL[string, int](ttl)),
+		"sharded":       NewShardedCache[string, int](WithTTL[string, int](ttl)),
+		"swiss":         NewSwissCache[string, int](WithTTL[string, int](ttl)),
+		"sharded-swiss": NewShardedSwissCache[string, int](WithTTL[string, int](ttl)),
 	}
 }
 

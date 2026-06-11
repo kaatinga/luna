@@ -61,6 +61,12 @@ var impls = []struct {
 			luna.WithDisableTouchOnHit[string, int](),
 		)
 	}},
+	{"luna-sharded-swiss", func() benchCache {
+		return luna.NewShardedSwissCache[string, int](
+			luna.WithTTL[string, int](ttl),
+			luna.WithDisableTouchOnHit[string, int](),
+		)
+	}},
 	{"jellydator", func() benchCache {
 		// the jellydator janitor (cache.Start) is intentionally not
 		// started — luna's janitor goroutines sleep on a timer too

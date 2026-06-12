@@ -106,32 +106,67 @@ ids := luna.NewCache[string, string](luna.WithTTL[string, string](luna.NoTTL))
 
 ## Benchmarks
 
-Measured against [jellydator/ttlcache/v3](https://github.com/jellydator/ttlcache)
-on an Apple M1 (8 threads), Go 1.26, string keys, touch-on-hit disabled in all
-caches, 6 runs each. The mixed workload is 90% Get / 5% Insert / 5% Delete
-across all cores via `b.RunParallel`. Full suite and raw results live in
-[benchmarks/](benchmarks/), which is a separate module so the root module
-stays dependency-free.
+Measured on an Apple M1 (8 threads), Go 1.26, string keys, touch-on-hit
+disabled in all caches, 6 runs each. Compared against a hand-rolled
+`map` + `RWMutex` baseline (`naive-map`) and five TTL caches:
+[jellydator/ttlcache/v3](https://github.com/jellydator/ttlcache),
+[maypok86/otter/v2](https://github.com/maypok86/otter),
+[Yiling-J/theine-go](https://github.com/Yiling-J/theine-go),
+[go-pkgz/expirable-cache/v3](https://github.com/go-pkgz/expirable-cache),
+and [patrickmn/go-cache](https://github.com/patrickmn/go-cache). The mixed
+workload is 90% Get / 5% Insert / 5% Delete across all cores via
+`b.RunParallel`. Full suite lives in [benchmarks/](benchmarks/) — a
+separate module so the root module stays dependency-free.
 
 ns/op at n=1,000 / 100,000 / 1,000,000 entries — lower is better:
 
-| Benchmark | luna | luna-sharded | jellydator |
-|---|---|---|---|
-| Get (hit) | **50 / 58 / 133** | 51 / 63 / 144 | 92 / 124 / 206 |
-| Get (miss) | **16 / 28 / 24** | 20 / 31 / 25 | 38 / 47 / 106 |
-| Insert (new) | **51 / 53 / 102** | 51 / 54 / 100 | 281 / 419 / 511 |
-| Insert (overwrite) | **51 / 53 / 89** | 51 / 54 / 92 | 279 / 424 / 571 |
-| Delete | **23 / 25 / 48** | 30 / 30 / 53 | 197 / 366 / 543 |
-| Mixed parallel | 144 / 182 / 477 | **39 / 45 / 142** | 242 / 376 / 766 |
+| Benchmark | luna | sharded | naive-map | otter | theine | expirable | go-cache | jellydator |
+|---|---|---|---|---|---|---|---|---|
+| Get (hit) | **50 / 57 / 122** | 51 / 62 / 129 | 48 / 59 / 158 | 75 / 93 / 184 | 109 / 155 / 278 | 54 / 73 / 168 | 51 / 68 / 180 | 92 / 120 / 214 |
+| Get (miss) | **17 / 30 / 25** | 21 / 33 / 26 | 48 / 60 / 132 | 25 / 31 / 106 | 45 / 65 / 135 | 16 / 33 / 66 | 15 / 30 / 51 | 39 / 49 / 122 |
+| Insert (overwrite) | **52 / 55 / 124** | 52 / 57 / 128 | 60 / 72 / 175 | 197 / 222 / 298 | 181 / 196 / 292 | 56 / 69 / 164 | 67 / 79 / 202 | 288 / 454 / 603 |
+| Insert (fresh slot) | **74 / 102 / 187** | 82 / 113 / 208 | 116 / 197 / 304 | 412 / 416 / 471 | 431 / 494 / 573 | 196 / 268 / 315 | 104 / 143 / 238 | 429 / 664 / 701 |
+| Delete | **23 / 25 / 50** | 30 / 30 / 54 | 32 / 39 / 85 | 156 / 169 / 241 | 192 / 216 / 288 | 63 / 80 / 167 | 44 / 52 / 100 | 193 / 346 / 534 |
+| Mixed parallel | 142 / 172 / 481 | **39 / 50 / 166** | 119 / 193 / 358 | 28 / 36 / 90 | 65 / 97 / 187 | 166 / 396 / 543 | 103 / 167 / 362 | 247 / 445 / 787 |
 
-All luna operations are allocation-free in steady state, including new-key
-inserts: freed entries are recycled through the arena's free list, and only
-table growth allocates (amortized).
+Allocations on a delete-then-insert cycle (`BenchmarkInsertFresh`, n=1,000,000)
+— lower is better:
 
-Honest framing: jellydator/ttlcache offers more functionality (capacity
-limits, per-item TTLs, metrics, eviction callbacks, singleflight loader
-suppression). Luna trades that for a smaller, faster core. If you need
-those features, use ttlcache.
+| | luna | sharded | naive-map | otter | theine | expirable | go-cache | jellydator |
+|---|---|---|---|---|---|---|---|---|
+| allocs/op | **0** | **0** | 1 | 1 | 1 | 2 | 1 | 3 |
+| B/op | **37** | 35 | 60 | 92 | 141 | 126 | 52 | 234 |
+
+Luna recycles arena slots, so even cold inserts are allocation-free. The
+`naive-map` baseline allocates one heap object per new key; map-backed
+libraries allocate at least once per fresh entry as well.
+
+Heap retained after filling to n entries and deleting them all, without a
+post-delete GC (MiB — lower is better). Map-backed caches keep their
+high-water bucket tables until the runtime collects them; luna's arena and
+swiss table hold similar dense storage but avoid per-entry pointers.
+
+| | n=100,000 | n=1,000,000 |
+|---|---|---|
+| luna | 11.4 | **89.4** |
+| luna-sharded | 16.9 | 88.4 |
+| naive-map | 9.9 | 93.6 |
+| otter | 14.5 | 67.2 |
+| theine | 18.5 | 183.1 |
+| expirable | 15.5 | 200.4 |
+| go-cache | 12.8 | 199.5 |
+| jellydator | 28.5 | 243.9 |
+
+At n=1,000,000 the naive `map` baseline retains ~94 MiB of bucket storage
+after every key is deleted — the same high-water mark as at peak — and each
+insert still allocated a `*entry` on the heap during the fill phase. Luna
+matches that footprint with zero per-entry allocations and recycles slots
+in-place; several libraries retain substantially more.
+
+Honest framing: jellydator, otter and theine offer more functionality
+(capacity limits, per-item TTLs, metrics, eviction callbacks, loaders).
+Luna trades that for a smaller, faster core. If you need those features,
+use one of the libraries above.
 
 ## How it works
 
@@ -160,7 +195,8 @@ prototypes, are preserved on the
 
 ```sh
 go test -race ./...
-cd benchmarks && go test -run xxx -bench . -count 6
+cd benchmarks && go test -run xxx -bench . -benchmem -count 6
+go test -run TestMemoryFootprint -v   # heap retained after fill+delete
 ```
 
 ## Contributing

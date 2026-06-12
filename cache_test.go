@@ -6,6 +6,8 @@ import (
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/kaatinga/luna/internal/swiss"
 )
 
 // ttlCache is the common surface of both cache types, for tests.
@@ -139,24 +141,25 @@ func (c *Cache[K, V]) checkEvictionList(t *testing.T, mustBeEmpty bool) {
 	c.me.Lock()
 	defer c.me.Unlock()
 
-	if mustBeEmpty && (c.firstEntry != nil || c.lastEntry != nil) {
+	if mustBeEmpty && (c.firstEntry != swiss.NoIndex || c.lastEntry != swiss.NoIndex) {
 		t.Fatalf("eviction list must be empty, first: %v, last: %v", c.firstEntry, c.lastEntry)
 	}
-	if !mustBeEmpty && (c.firstEntry == nil || c.lastEntry == nil) {
+	if !mustBeEmpty && (c.firstEntry == swiss.NoIndex || c.lastEntry == swiss.NoIndex) {
 		t.Fatal("eviction list must not be empty")
 	}
 
 	var previousTime int64
 	count := 0
-	for e := c.firstEntry; e != nil; e = e.NextEntry {
+	for idx := c.firstEntry; idx != swiss.NoIndex; idx = c.table.At(idx).Next {
+		e := c.table.At(idx)
 		if previousTime != 0 && e.ExpirationTime > previousTime {
 			t.Fatalf("entry %v expires after its newer neighbour", e.Key)
 		}
 		previousTime = e.ExpirationTime
-		if e.NextEntry == nil && e != c.lastEntry {
-			t.Fatalf("list tail %v is not lastEntry %v", e.Key, c.lastEntry.Key)
+		if e.Next == swiss.NoIndex && idx != c.lastEntry {
+			t.Fatalf("list tail %v is not lastEntry %v", e.Key, c.table.At(c.lastEntry).Key)
 		}
-		if e.NextEntry != nil && e.NextEntry.PreviousEntry != e {
+		if e.Next != swiss.NoIndex && c.table.At(e.Next).Prev != idx {
 			t.Fatalf("broken back-link at %v", e.Key)
 		}
 		if count++; count > c.table.Len() {
@@ -261,7 +264,7 @@ func TestGetAndDelete_Test(t *testing.T) {
 
 		cache.Insert("stale", 1)
 		cache.me.Lock()
-		cache.table.Get(cache.table.Hash("stale"), "stale").ExpirationTime = time.Now().UnixNano() - 1
+		cache.table.At(cache.table.Get(cache.table.Hash("stale"), "stale")).ExpirationTime = time.Now().UnixNano() - 1
 		cache.me.Unlock()
 
 		if _, ok := cache.GetAndDelete("stale"); ok {
@@ -441,7 +444,7 @@ func TestNoTTL_Test(t *testing.T) {
 		cache.me.Lock()
 		first, last := cache.firstEntry, cache.lastEntry
 		cache.me.Unlock()
-		if first != nil || last != nil {
+		if first != swiss.NoIndex || last != swiss.NoIndex {
 			t.Fatalf("eviction list not empty: first=%v last=%v", first, last)
 		}
 	})
@@ -505,5 +508,30 @@ func TestStructKeys_Test(t *testing.T) {
 	}
 	if _, ok := cache.Get(point{5, 6}); ok {
 		t.Fatal("absent struct key found")
+	}
+}
+
+// TestZeroAllocSteadyState asserts the documented allocation behavior: no
+// allocations on hits, misses, overwrites and delete/re-insert cycles (the
+// arena recycles freed entries).
+func TestZeroAllocSteadyState_Test(t *testing.T) {
+	cache := NewCache[string, int]()
+	defer cache.Stop()
+	cache.Insert("hot", 1)
+	cache.Insert("churn", 1) // warm the arena's free list
+	cache.Delete("churn")
+
+	for name, op := range map[string]func(){
+		"get hit":   func() { cache.Get("hot") },
+		"get miss":  func() { cache.Get("absent") },
+		"overwrite": func() { cache.Insert("hot", 2) },
+		"delete and re-insert": func() {
+			cache.Insert("churn", 1)
+			cache.Delete("churn")
+		},
+	} {
+		if avg := testing.AllocsPerRun(1000, op); avg != 0 {
+			t.Errorf("%s: %v allocs/op, want 0", name, avg)
+		}
 	}
 }

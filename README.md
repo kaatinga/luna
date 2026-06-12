@@ -9,10 +9,11 @@ Luna is a fast, dependency-free TTL cache for Go with a deliberately small API.
 
 It stores entries in a hand-rolled open-addressing hash table in the style of
 swiss tables (control bytes probed a word at a time, like the Go 1.24+ runtime
-map). Each entry is allocated once and doubles as a node of an intrusive
-eviction list, so there is no separate map entry, list element and item object
-per key. Eviction is driven by a single timer armed for the oldest entry's
-deadline — no polling, no channels on the hot path.
+map). Entries live inline in a dense arena indexed by `int32` and double as
+nodes of an intrusive eviction list, so there is no per-item allocation at
+all — the GC sees three slices instead of an object per key. Eviction is
+driven by a single timer armed for the oldest entry's deadline — no polling,
+no channels on the hot path.
 
 ## Features
 
@@ -116,15 +117,16 @@ ns/op at n=1,000 / 100,000 / 1,000,000 entries — lower is better:
 
 | Benchmark | luna | luna-sharded | jellydator |
 |---|---|---|---|
-| Get (hit) | **49 / 55 / 127** | 57 / 70 / 140 | 92 / 112 / 201 |
-| Get (miss) | **15 / 29 / 23** | 24 / 36 / 29 | 38 / 49 / 105 |
-| Insert (new) | **51 / 62 / 172** | 58 / 68 / 144 | 286 / 438 / 523 |
-| Insert (overwrite) | **50 / 55 / 123** | 57 / 68 / 140 | 280 / 436 / 592 |
-| Delete | **20 / 27 / 73** | 31 / 34 / 78 | 202 / 370 / 559 |
-| Mixed parallel | 143 / 227 / 507 | **39 / 50 / 155** | 261 / 429 / 793 |
+| Get (hit) | **50 / 58 / 133** | 51 / 63 / 144 | 92 / 124 / 206 |
+| Get (miss) | **16 / 28 / 24** | 20 / 31 / 25 | 38 / 47 / 106 |
+| Insert (new) | **51 / 53 / 102** | 51 / 54 / 100 | 281 / 419 / 511 |
+| Insert (overwrite) | **51 / 53 / 89** | 51 / 54 / 92 | 279 / 424 / 571 |
+| Delete | **23 / 25 / 48** | 30 / 30 / 53 | 197 / 366 / 543 |
+| Mixed parallel | 144 / 182 / 477 | **39 / 45 / 142** | 242 / 376 / 766 |
 
-All luna operations are allocation-free except inserting a new key
-(one allocation — the entry itself).
+All luna operations are allocation-free in steady state, including new-key
+inserts: freed entries are recycled through the arena's free list, and only
+table growth allocates (amortized).
 
 Honest framing: jellydator/ttlcache offers more functionality (capacity
 limits, per-item TTLs, metrics, eviction callbacks, singleflight loader
@@ -137,12 +139,18 @@ those features, use ttlcache.
   holding seven bits of the hash, probed in groups of eight with plain word
   operations (SWAR), tombstones on delete, growth at 7/8 load factor.
   Hashing is stdlib `hash/maphash.Comparable`.
+- Entries are stored inline in a dense arena and addressed by `int32`
+  indices, which stay stable across table growth; deleted entries feed an
+  intrusive free list, so steady-state operation never allocates. After a
+  mass expiry the table shrinks back down (explicit Delete-only workloads
+  keep their high-water size — shrinking happens off the hot path).
 - Entries form a doubly-linked list ordered by expiration. Insert and touch
   move an entry to the front; the janitor goroutine sleeps on one
   `time.Timer` armed for the tail's deadline and evicts from the tail.
 - `Get` never returns an expired entry, even before the janitor collects it.
-- `ShardedCache` hashes the key once more to pick one of 16 independent
-  `Cache` instances, dividing lock contention accordingly.
+- `ShardedCache` hashes the key once and uses the high bits to pick one of
+  16 independent `Cache` instances (the tables consume the low bits),
+  dividing lock contention accordingly.
 
 The AVL-tree engine this project started with, and the other bake-off
 prototypes, are preserved on the

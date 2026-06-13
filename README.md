@@ -2,10 +2,20 @@
 [![codecov](https://codecov.io/gh/kaatinga/luna/graph/badge.svg?token=277RYDJB2J)](https://codecov.io/gh/kaatinga/luna)
 [![lint workflow](https://github.com/kaatinga/luna/actions/workflows/golangci-lint.yml/badge.svg)](https://github.com/kaatinga/luna/actions?query=workflow%3Alinter)
 [![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)](https://github.com/kaatinga/luna/blob/main/LICENSE)
+[![Go Reference](https://pkg.go.dev/badge/github.com/kaatinga/luna.svg)](https://pkg.go.dev/github.com/kaatinga/luna)
 
 # Luna
 
 Luna is a fast, dependency-free TTL cache for Go with a deliberately small API.
+
+**Why Luna:** it stores entries in a dense arena instead of a `map`, so steady
+state — even cold inserts after a delete — is **allocation-free** and the GC
+sees three slices rather than one object per key. At 1M entries that means
+**0 allocs/op** on insert and roughly **half the retained heap** of
+`go-cache`, `theine` or `jellydator` (see [Benchmarks](#benchmarks)), with
+get/insert/delete latency at or below every cache benchmarked. If you want a
+small, memory-frugal core and don't need capacity limits, per-item TTLs or
+eviction callbacks, Luna is for you.
 
 It stores entries in a hand-rolled open-addressing hash table in the style of
 swiss tables (control bytes probed a word at a time, like the Go 1.24+ runtime
@@ -117,6 +127,15 @@ and [patrickmn/go-cache](https://github.com/patrickmn/go-cache). The mixed
 workload is 90% Get / 5% Insert / 5% Delete across all cores via
 `b.RunParallel`. Full suite lives in [benchmarks/](benchmarks/) — a
 separate module so the root module stays dependency-free.
+
+Reproduce it yourself — every number below comes from one command:
+
+```sh
+cd benchmarks
+make bench     # full latency + allocs suite, 6 runs
+make memory    # heap retained after fill+delete
+make stat      # benchstat new.txt against the committed baseline
+```
 
 ns/op at n=1,000 / 100,000 / 1,000,000 entries — lower is better:
 

@@ -12,6 +12,7 @@ type options[K comparable, V any] struct {
 	ttl               time.Duration
 	disableTouchOnHit bool
 	loader            func(key K) (V, bool)
+	initialSize       int  // expected entry count; presizes table and arena
 	noTTL             bool // derived from ttl by NewCache, not set by options
 }
 
@@ -44,5 +45,21 @@ func WithDisableTouchOnHit[K comparable, V any]() Option[K, V] {
 func WithLoader[K comparable, V any](loader func(key K) (V, bool)) Option[K, V] {
 	return func(opts *options[K, V]) {
 		opts.loader = loader
+	}
+}
+
+// WithInitialSize presizes the cache for an expected number of live entries,
+// so filling up to n inserts triggers no table rehash and no arena
+// reallocation — every insert during the fill is allocation-free, not just
+// steady-state churn. n is a hint for the high-water mark, not a cap: the
+// cache still grows past it on demand. A non-positive n is ignored.
+//
+// For ShardedCache, n is the total across all shards; it is divided evenly
+// between them.
+func WithInitialSize[K comparable, V any](n int) Option[K, V] {
+	return func(opts *options[K, V]) {
+		if n > 0 {
+			opts.initialSize = n
+		}
 	}
 }

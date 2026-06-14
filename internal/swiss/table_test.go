@@ -98,6 +98,51 @@ func TestArenaReuse(t *testing.T) {
 	}
 }
 
+// TestReserve checks that presizing lets a fill of n entries complete with
+// no rehash (groups unchanged) and no arena reallocation (cap unchanged).
+func TestReserve(t *testing.T) {
+	const n = 10_000
+	tbl := NewTable[int, int]()
+	tbl.Reserve(n)
+
+	groups := tbl.groups
+	arenaCap := cap(tbl.entries)
+	if arenaCap < n {
+		t.Fatalf("arena not reserved: cap %d < %d", arenaCap, n)
+	}
+
+	for i := range n {
+		tbl.Insert(tbl.Hash(i), i)
+	}
+
+	if tbl.groups != groups {
+		t.Fatalf("table rehashed during reserved fill: %d -> %d groups", groups, tbl.groups)
+	}
+	if cap(tbl.entries) != arenaCap {
+		t.Fatalf("arena reallocated during reserved fill: %d -> %d cap", arenaCap, cap(tbl.entries))
+	}
+	if tbl.Len() != n {
+		t.Fatalf("wrong size after fill: %d", tbl.Len())
+	}
+	for i := range n {
+		if tbl.Get(tbl.Hash(i), i) == NoIndex {
+			t.Fatalf("entry %d missing after reserved fill", i)
+		}
+	}
+}
+
+// TestReserveNoShrink checks Reserve only grows: a smaller hint is a no-op.
+func TestReserveNoShrink(t *testing.T) {
+	tbl := NewTable[int, int]()
+	tbl.Reserve(10_000)
+	groups, arenaCap := tbl.groups, cap(tbl.entries)
+	tbl.Reserve(10)
+	if tbl.groups != groups || cap(tbl.entries) != arenaCap {
+		t.Fatalf("Reserve shrank the table: groups %d->%d, cap %d->%d",
+			groups, tbl.groups, arenaCap, cap(tbl.entries))
+	}
+}
+
 // TestFreeZeroesEntry guards the GC-release contract of Free.
 func TestFreeZeroesEntry(t *testing.T) {
 	tbl := NewTable[string, *int]()

@@ -63,6 +63,10 @@ func newCache[K comparable, V any](seed maphash.Seed, opts ...Option[K, V]) *Cac
 		go c.evictionWorker()
 	}
 
+	if c.initialSize > 0 {
+		c.table.Reserve(c.initialSize)
+	}
+
 	return c
 }
 

@@ -22,6 +22,19 @@ type ShardedCache[K comparable, V any] struct {
 // Call Stop when the cache is no longer needed.
 func NewShardedCache[K comparable, V any](opts ...Option[K, V]) *ShardedCache[K, V] {
 	c := &ShardedCache[K, V]{seed: maphash.MakeSeed()}
+
+	// WithInitialSize names the total across all shards; split it so each
+	// shard reserves its share rather than the whole amount. Appended last
+	// so it overrides the caller's value.
+	var o options[K, V]
+	for _, fn := range opts {
+		fn(&o)
+	}
+	if o.initialSize > 0 {
+		perShard := (o.initialSize + shardCount - 1) / shardCount
+		opts = append(opts, WithInitialSize[K, V](perShard))
+	}
+
 	for i := range c.shards {
 		c.shards[i] = newCache(c.seed, opts...)
 	}

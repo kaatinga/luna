@@ -38,6 +38,8 @@ no channels on the hot path.
   handy for secrets and PRG-style form state.
 - **Two flavours** — `Cache` for single-goroutine-dominated workloads,
   `ShardedCache` (16 independent shards) for heavy concurrent use.
+- **Presizing** — `WithInitialSize(n)` reserves the table and arena up front,
+  so even the initial fill is allocation-free, not just steady-state churn.
 - **Small API on purpose** — `Insert`, `Get`, `GetAndDelete`, `Delete`,
   `Len`, `Stop`. No callbacks, capacity limits, metrics or per-item TTLs.
 
@@ -112,6 +114,18 @@ entirely — no timer and no background goroutine are created:
 
 ```go
 ids := luna.NewCache[string, string](luna.WithTTL[string, string](luna.NoTTL))
+```
+
+If you know roughly how many entries the cache will hold, reserve them up
+front with `WithInitialSize` — the fill then triggers no rehash and no arena
+reallocation, so every insert during warm-up is allocation-free too (for
+`ShardedCache` the size is the total across all shards):
+
+```go
+sessions := luna.NewCache[string, Session](
+	luna.WithTTL[string, Session](30*time.Minute),
+	luna.WithInitialSize[string, Session](100_000),
+)
 ```
 
 ## Benchmarks

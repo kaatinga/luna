@@ -28,6 +28,45 @@ func variants(ttl time.Duration, opts ...Option[string, int]) map[string]ttlCach
 	}
 }
 
+// TestWithInitialSize checks that a presized cache fills correctly and that
+// the fill allocates nothing (no per-entry alloc, no table growth) for both
+// the plain and sharded variants. For sharded, the size is the total across
+// shards, so the keys must distribute and still all be retrievable.
+func TestWithInitialSize(t *testing.T) {
+	const n = 20_000
+	for name, cache := range variants(time.Hour, WithInitialSize[string, int](n)) {
+		t.Run(name, func(t *testing.T) {
+			defer cache.Stop()
+
+			keys := make([]string, n)
+			for i := range keys {
+				keys[i] = strconv.Itoa(i)
+			}
+
+			i := 0
+			allocs := testing.AllocsPerRun(1, func() {
+				cache.Insert(keys[i%n], i)
+				i++
+			})
+			if allocs != 0 {
+				t.Fatalf("reserved insert allocated %v objects/op, want 0", allocs)
+			}
+
+			for j := range keys {
+				cache.Insert(keys[j], j)
+			}
+			if got := cache.Len(); got != n {
+				t.Fatalf("Len() = %d, want %d", got, n)
+			}
+			for j := range keys {
+				if v, ok := cache.Get(keys[j]); !ok || v != j {
+					t.Fatalf("key %d: got %v (ok=%v), want %d", j, v, ok, j)
+				}
+			}
+		})
+	}
+}
+
 func TestBasic_Test(t *testing.T) {
 	for name, cache := range variants(time.Hour) {
 		t.Run(name, func(t *testing.T) {

@@ -265,6 +265,31 @@ func (t *Table[K, V]) MaybeShrink() {
 	}
 }
 
+// Reserve presizes the table to hold at least n entries without a rehash or
+// an arena reallocation. The index is grown so n entries stay below the 7/8
+// load factor (groups*7 >= n), and the arena's capacity is raised to n so
+// the fill never re-slices. It only ever grows: a smaller n, or n below the
+// current capacity, is a no-op. Intended for an empty table at construction.
+func (t *Table[K, V]) Reserve(n int) {
+	if n <= 0 {
+		return
+	}
+	// the table grows once live > groups*7, so groups*7 >= n holds n entries
+	need := uint64((n + groupSize - 1) / (groupSize - 1))
+	groups := t.groups
+	for groups < need {
+		groups *= 2
+	}
+	if groups != t.groups {
+		t.rehash(groups)
+	}
+	if cap(t.entries) < n {
+		entries := make([]Entry[K, V], len(t.entries), n)
+		copy(entries, t.entries)
+		t.entries = entries
+	}
+}
+
 func (t *Table[K, V]) grow() {
 	groups := t.groups
 	if (t.size+1)*8 > len(t.slots)*7/2 {
